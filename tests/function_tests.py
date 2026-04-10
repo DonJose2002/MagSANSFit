@@ -1,6 +1,5 @@
 """
-test file with manual input for checking validity of equations, optimization methods, etc. 
-Essentially a functional main.py without ui
+Junkyard for miscell tests
 """
 from problems.coreshell import formfactor_coreshell
 from problems.distributions import distribution_normal,distribution_lognormal
@@ -8,14 +7,27 @@ from problems.ellipsoid import volume_ellipsoid,formfactor_ellipsoid
 from problems.sphere import volume_sphere,formfactor_sphere
 from problems.approximations import I_porod
 from core.models.assembled_problem import final_intensity_spheroid,nano_intensity_spheroid
+from core.models.BO_model import chi2_final_intensity_spheroid_BO_single,chi2_final_intensity_spheroid_BO_double
 from core.models.loss_functions import loss_chi2
 from core.utils.file_reader import file_reader_1d,file_reader_2d,file_reader_1d_nofilter
-
+from core.acquisition.acquisition_functions import get_acq_qLogEI
 
 from scipy.integrate import quad
 import numpy as np
 import pandas as pd
 import plotly.graph_objects as go
+import torch
+from botorch.models import SingleTaskGP
+from botorch.fit import fit_gpytorch_mll
+from botorch.acquisition.logei import qLogNoisyExpectedImprovement
+from botorch.optim import optimize_acqf
+from botorch.sampling import SobolQMCNormalSampler
+from gpytorch.mlls import ExactMarginalLogLikelihood
+from botorch.models.transforms import Normalize
+import warnings
+import time
+
+max_iteration_BO = 50 #maximum BO loop number
 
 ###input parameters
 distribution_type = "double" #mono,normal,log normal,double
@@ -96,8 +108,8 @@ elif distribution_type == "mono":
 
 model_Q = np.linspace(0.01,3,100)
 #model_I = [(final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,q,Rm_1,C,sigma=sigma_rm_1)+nano_intensity_spheroid(combinedfactor_2,distribution_lognormal,formfactor_sphere,volume_sphere,q,Rm_2,sigma=sigma_rm_2)) for q in model_Q]
-model_I = [final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,q,Rm_1,C,sigma=sigma_rm_1) for q in model_Q]
-#plot initial case
+model_I = final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,model_Q,Rm_1,C,sigma=sigma_rm_1) 
+
 model_I_chi2 = [final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,q,Rm_1,C,sigma=sigma_rm_1) for q in test_Q]
 chi2 = loss_chi2(test_I,test_sigmaI,model_I_chi2,5)
 print(chi2)
