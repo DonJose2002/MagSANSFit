@@ -401,3 +401,8 @@ else:
     result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
 
 print(f"Best result: Parameters = {result.x}, chi2_red = {result.cost*2/dof:.4f}")
+
+J = result.jac #jacobian
+H_approx = J.T @ J #hessian approximation
+cov = np.linalg.inv(H_approx) #covariance matrix
+uncertainties = np.sqrt(np.diag(cov))
