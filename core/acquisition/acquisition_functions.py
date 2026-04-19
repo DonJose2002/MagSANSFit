@@ -56,7 +56,7 @@ def build_model(list_x,list_y,y_variance,beta):
                 ard_num_dims=list_x.shape[-1],
                 lengthscale_prior=GammaPrior(3.0, beta)  # prevents short lengthscales
             ),
-            outputscale_prior=GammaPrior(2.0, 2.0)
+            outputscale_prior=GammaPrior(2.0, 2.0) 
         ))
     mll = ExactMarginalLogLikelihood(model_gp.likelihood, model_gp)
     fit_gpytorch_mll(mll)

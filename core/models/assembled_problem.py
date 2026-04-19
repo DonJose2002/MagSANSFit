@@ -110,6 +110,7 @@ def final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volum
 """
 single_intensity: intensity value with scale conversion
 """  
+"""
 def single_intensity_spheroid(approx,
                               combinedfactor_log,
                               distribution,
@@ -122,7 +123,7 @@ def single_intensity_spheroid(approx,
                               gamma=4,
                               sigma=None,
                               k=None,
-                              mu=None,):
+                              mu=None):
     combinedfactor = np.exp(-combinedfactor_log)
     background = np.exp(background_log)
     C = np.exp(C_log)
@@ -130,6 +131,33 @@ def single_intensity_spheroid(approx,
     if sigma is not None:
         sigma_rm = sigma*R
     return final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu)
+"""
+def single_intensity_spheroid(approx,
+                              combinedfactor_log,
+                              distribution,
+                              formfactor,
+                              volume,
+                              Q,
+                              R,  
+                              gamma=4,
+                              background_log=None,
+                              C_log=None,
+                              sigma=None,
+                              k=None,
+                              mu=None):
+    combinedfactor = np.exp(-combinedfactor_log)
+    
+    sigma_rm = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if background_log is not None:
+        background = np.exp(background_log)
+        C = np.exp(C_log)
+        return final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu)
+    else:
+        return nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
                                    k=k,mu=mu)
 """
 double_intensity: combined value with scale conversion
@@ -143,12 +171,12 @@ def double_intensity_spheroid(approx,
                               formfactor_2,
                               volume,
                               volume_2,
-                              background_log,
                               Q,
                               R,
                               R_2,
-                              C_log,
                               gamma=4,
+                              background_log=None,
+                              C_log=None,
                               sigma=None,
                               sigma_2=None,
                               k=None,
@@ -157,16 +185,237 @@ def double_intensity_spheroid(approx,
                               mu_2=None):
     combinedfactor = np.exp(-combinedfactor_log)
     combinedfactor_2 = np.exp(-combinedfactor_2_log)
-    background = np.exp(background_log)
-    C = np.exp(C_log)
     sigma_rm = None
     sigma_rm_2 = None
     if sigma is not None:
         sigma_rm = sigma*R
     if sigma_2 is not None:
         sigma_rm_2 = sigma_2*R_2
-
-    res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
-                                   k=k,mu=mu) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
-                                                                            sigma=sigma_rm_2,k=k_2,mu=mu_2)
+    if background_log is not None:
+        background = np.exp(background_log)
+        C = np.exp(C_log)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                    k=k,mu=mu) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                                sigma=sigma_rm_2,k=k_2,mu=mu_2)
+    else:
+        res = nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                    k=k,mu=mu) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                                sigma=sigma_rm_2,k=k_2,mu=mu_2)
     return res
+"""
+mag specific functions such that parameter names are different(very important)
+"""
+def single_intensity_spheroid_mag(approx,
+                              combinedfactor_log_mag,
+                              distribution,
+                              formfactor,
+                              volume,
+                              Q,
+                              R,
+                              gamma=4,
+                              background_log_mag=None,
+                              C_log_mag=None,
+                              sigma=None,
+                              k=None,
+                              mu_mag=None):
+    combinedfactor = np.exp(-combinedfactor_log_mag)
+    
+    sigma_rm = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if background_log_mag is not None:
+        background = np.exp(background_log_mag)
+        C = np.exp(C_log_mag)
+        return final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu_mag)
+    else:
+        return nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                   k=k,mu=mu_mag)
+
+def double_intensity_spheroid_mag(approx,
+                              combinedfactor_log_mag,
+                              combinedfactor_2_log_mag,
+                              distribution,
+                              distribution_2,
+                              formfactor,
+                              formfactor_2,
+                              volume,
+                              volume_2,
+                              
+                              Q,
+                              R,
+                              R_2,
+                              
+                              gamma=4,
+                              background_log_mag=None,
+                              C_log_mag=None,
+                              sigma=None,
+                              sigma_2=None,
+                              k=None,
+                              k_2=None,
+                              mu_mag=None,
+                              mu_2_mag=None):
+    combinedfactor = np.exp(-combinedfactor_log_mag)
+    combinedfactor_2 = np.exp(-combinedfactor_2_log_mag)
+    
+    sigma_rm = None
+    sigma_rm_2 = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if sigma_2 is not None:
+        sigma_rm_2 = sigma_2*R_2
+    if background_log_mag is not None:
+        background = np.exp(background_log_mag)
+        C = np.exp(C_log_mag)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu_mag) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                            sigma=sigma_rm_2,k=k_2,mu=mu_2_mag)
+    else:
+        res = nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                   k=k,mu=mu_mag) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                            sigma=sigma_rm_2,k=k_2,mu=mu_2_mag)
+    return res
+"""
+log variants for discrepancy joint fitting
+"""
+def log_single_intensity_spheroid(approx,
+                              combinedfactor_log,
+                              distribution,
+                              formfactor,
+                              volume,
+                              Q,
+                              R,  
+                              gamma=4,
+                              background_log=None,
+                              C_log=None,
+                              sigma=None,
+                              k=None,
+                              mu=None):
+    combinedfactor = np.exp(-combinedfactor_log)
+    
+    sigma_rm = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if background_log is not None:
+        background = np.exp(background_log)
+        C = np.exp(C_log)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu)
+    else:
+        res =  nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                   k=k,mu=mu)
+    return np.log(res)
+def log_double_intensity_spheroid(approx,
+                              combinedfactor_log,
+                              combinedfactor_2_log,
+                              distribution,
+                              distribution_2,
+                              formfactor,
+                              formfactor_2,
+                              volume,
+                              volume_2,
+                              Q,
+                              R,
+                              R_2,
+                              gamma=4,
+                              background_log=None,
+                              C_log=None,
+                              sigma=None,
+                              sigma_2=None,
+                              k=None,
+                              k_2=None,
+                              mu=None,
+                              mu_2=None):
+    combinedfactor = np.exp(-combinedfactor_log)
+    combinedfactor_2 = np.exp(-combinedfactor_2_log)
+    sigma_rm = None
+    sigma_rm_2 = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if sigma_2 is not None:
+        sigma_rm_2 = sigma_2*R_2
+    if background_log is not None:
+        background = np.exp(background_log)
+        C = np.exp(C_log)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                    k=k,mu=mu) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                                sigma=sigma_rm_2,k=k_2,mu=mu_2)
+    else:
+        res = nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                    k=k,mu=mu) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                                sigma=sigma_rm_2,k=k_2,mu=mu_2)
+    return np.log(res)
+"""
+mag specific functions such that parameter names are different(very important)
+"""
+def log_single_intensity_spheroid_mag(approx,
+                              combinedfactor_log_mag,
+                              distribution,
+                              formfactor,
+                              volume,
+                              Q,
+                              R,
+                              gamma=4,
+                              background_log_mag=None,
+                              C_log_mag=None,
+                              sigma=None,
+                              k=None,
+                              mu_mag=None):
+    combinedfactor = np.exp(-combinedfactor_log_mag)
+    
+    sigma_rm = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if background_log_mag is not None:
+        background = np.exp(background_log_mag)
+        C = np.exp(C_log_mag)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu_mag)
+    else:
+        res = nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                   k=k,mu=mu_mag)
+    return np.log(res)
+
+def log_double_intensity_spheroid_mag(approx,
+                              combinedfactor_log_mag,
+                              combinedfactor_2_log_mag,
+                              distribution,
+                              distribution_2,
+                              formfactor,
+                              formfactor_2,
+                              volume,
+                              volume_2,
+                              
+                              Q,
+                              R,
+                              R_2,
+                              
+                              gamma=4,
+                              background_log_mag=None,
+                              C_log_mag=None,
+                              sigma=None,
+                              sigma_2=None,
+                              k=None,
+                              k_2=None,
+                              mu_mag=None,
+                              mu_2_mag=None):
+    combinedfactor = np.exp(-combinedfactor_log_mag)
+    combinedfactor_2 = np.exp(-combinedfactor_2_log_mag)
+    
+    sigma_rm = None
+    sigma_rm_2 = None
+    if sigma is not None:
+        sigma_rm = sigma*R
+    if sigma_2 is not None:
+        sigma_rm_2 = sigma_2*R_2
+    if background_log_mag is not None:
+        background = np.exp(background_log_mag)
+        C = np.exp(C_log_mag)
+        res = final_intensity_spheroid(approx,combinedfactor,distribution,formfactor,volume,background,Q,R,C,gamma=gamma,sigma=sigma_rm,
+                                   k=k,mu=mu_mag) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                            sigma=sigma_rm_2,k=k_2,mu=mu_2_mag)
+    else:
+        res = nano_intensity_spheroid(combinedfactor,distribution,formfactor,volume,Q,R,sigma=sigma_rm,
+                                   k=k,mu=mu_mag) + nano_intensity_spheroid(combinedfactor_2,distribution_2,formfactor_2,volume_2,Q,R_2,
+                                                                            sigma=sigma_rm_2,k=k_2,mu=mu_2_mag)
+    return np.log(res)

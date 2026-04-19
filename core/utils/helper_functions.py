@@ -41,6 +41,17 @@ def chi2_red_variance(chi2_red, dof):
 
 def log_chi2_red_variance(chi2_red, dof, s2=None): #s2: variance of log reduced chi2
     if s2 is not None:
-        return torch.clamp(4/(dof*chi2_red), min=5e-6*s2)
+        return torch.clamp(4/(dof*chi2_red), min=2e-6*s2) #rescale variance to suit computation limits
     else:
-        return torch.clamp(4/(dof*chi2_red), min=5e-6)
+        return torch.clamp(4/(dof*chi2_red), min=2e-6)
+    
+def joint_log_chi2_red_variance(chi2_red_1, chi2_red_2, dof, s2 = None):
+    chi2_sum = chi2_red_1 + chi2_red_2
+    variance_1 = 4*chi2_red_1/dof
+    variance_2 = 4*chi2_red_2/dof
+    variance = (variance_1+variance_2)/chi2_sum ** 2
+    if s2 is not None:
+        return torch.clamp(variance, min=s2*2e-6)
+    else:
+        return torch.clamp(variance, min=2e-6)
+

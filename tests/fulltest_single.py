@@ -307,7 +307,7 @@ dof = test_I.shape[0]-bounds.shape[1]
 n_init = 100
 t0 = time.time()
 X = bounds[0] + (bounds[1] - bounds[0]) * torch.rand(n_init, bounds.shape[1])
-#print(X.shape)
+print(X.shape)
 #print(X.shape[-1])
 #print(bounds.shape)
 #print(X)
@@ -406,3 +406,6 @@ J = result.jac #jacobian
 H_approx = J.T @ J #hessian approximation
 cov = np.linalg.inv(H_approx) #covariance matrix
 uncertainties = np.sqrt(np.diag(cov)) #fit uncertainties
+
+startpoint = torch.tensor([np.array(result.x)])
+print(startpoint.shape) #1xn
