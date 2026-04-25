@@ -61,3 +61,18 @@ def build_model(list_x,list_y,y_variance,beta):
     mll = ExactMarginalLogLikelihood(model_gp.likelihood, model_gp)
     fit_gpytorch_mll(mll)
     return model_gp
+"""
+build_model_discrepancy : build_model for discrepancy joint fit, to be passed onto LogEI
+"""
+def build_model_discrepancy(list_x,list_y,beta):
+    model_gp = SingleTaskGP(list_x,list_y, input_transform=Normalize(d=list_x.shape[-1]),outcome_transform=Standardize(m=1),
+        covar_module=ScaleKernel(
+            RBFKernel(
+                ard_num_dims=list_x.shape[-1],
+                lengthscale_prior=GammaPrior(3.0, beta)  # prevents short lengthscales
+            ),
+            outputscale_prior=GammaPrior(2.0, 2.0) 
+        ))
+    mll = ExactMarginalLogLikelihood(model_gp.likelihood, model_gp)
+    fit_gpytorch_mll(mll)
+    return model_gp

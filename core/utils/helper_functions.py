@@ -55,3 +55,5 @@ def joint_log_chi2_red_variance(chi2_red_1, chi2_red_2, dof, s2 = None):
     else:
         return torch.clamp(variance, min=2e-6)
 
+def compute_sigma_z(experiment, uncertainty):
+    return uncertainty/experiment

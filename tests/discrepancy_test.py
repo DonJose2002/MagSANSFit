@@ -9,11 +9,14 @@ from problems.sphere import volume_sphere,formfactor_sphere
 from problems.approximations import I_porod
 from core.models.assembled_problem import final_intensity_spheroid,nano_intensity_spheroid,double_intensity_spheroid,single_intensity_spheroid,double_intensity_spheroid_mag,single_intensity_spheroid_mag
 from core.models.BO_model import chi2_final_intensity_spheroid_BO_single,chi2_final_intensity_spheroid_BO_double,chi2_final_intensity_spheroid_BO_double_with_reward,chi2_final_intensity_spheroid_BO_single_with_reward,chi2_nano_intensity_spheroid_BO_double,chi2_nano_intensity_spheroid_BO_single
-from core.models.loss_functions import loss_chi2,make_residual, make_residual_nostop, TargetChi2Reached,make_joint_residuals,make_residuals_from_slice
+from core.models.BO_with_error import log_chi2_final_intensity_spheroid_BO_single,log_chi2_final_intensity_spheroid_BO_double,log_chi2_nano_intensity_spheroid_BO_double,log_chi2_nano_intensity_spheroid_BO_single
+from core.models.BO_with_error_separate import log_chi2_final_intensity_spheroid_BO_double_separate,log_chi2_final_intensity_spheroid_BO_single_separate,log_chi2_nano_intensity_spheroid_BO_double_separate,log_chi2_nano_intensity_spheroid_BO_single_separate
+from core.models.loss_functions import loss_chi2,make_residual, make_residual_nostop, TargetChi2Reached,make_joint_residuals,make_residuals_from_slice,noisy_loss_log_chi2,make_discrepancy_loss_from_slice,make_discrepancy_loss
 from core.utils.file_reader import file_reader_1d,file_reader_2d,file_reader_1d_nofilter
-from core.acquisition.acquisition_functions import get_acq_qLogEI,get_acq_LogEI,build_model
+from core.acquisition.acquisition_functions import get_acq_qLogEI,get_acq_LogEI,build_model,build_model_discrepancy
 from core.utils.helper_functions import objective,chi2_red_variance,log_chi2_red_variance,joint_log_chi2_red_variance
 from core.optimizer.Levenberg_Marquardt import LM_optimize,LM_joint_optimize
+from core.optimizer.LBFGS import LBFGS_optimize
 
 
 
@@ -29,7 +32,7 @@ from botorch.optim import optimize_acqf
 from botorch.sampling import SobolQMCNormalSampler
 from gpytorch.mlls import ExactMarginalLogLikelihood
 from botorch.models.transforms import Normalize
-from botorch.acquisition.analytic import LogNoisyExpectedImprovement
+from botorch.acquisition.analytic import LogNoisyExpectedImprovement,LogExpectedImprovement
 import warnings
 import time
 import copy
@@ -41,6 +44,8 @@ torch.manual_seed(0)
 
 #BO loop settings
 max_iteration_BO = 75 #maximum BO loop number
+min_discrepancy_allowance = 50 #minimum loop threshold before model starts accounting for best solutions
+logspace_tolerance = 0.1 #discrepancy fit acceptance criteria
 #reduced chi2 transform options
 target_chi2 = 1
 width_chi2 = 0.3
@@ -126,6 +131,10 @@ range_kellipsoid = [0.5,3]
 range_kshell = [0,1]
 range_mu = [-10,10]
 
+#discrepancy range
+range_model_discrepancy = [1e-4,1]
+range_model_discrepancy_log = [np.log(range_model_discrepancy[0]),np.log(range_model_discrepancy[1])]
+
 #user-related bound ranges
 search_width_A = 2
 search_width_Rm = 4
@@ -156,7 +165,7 @@ C = np.exp(log_C)
 
 
 #load data from txt file
-test_Q, test_I, test_sigmaI, test_sigmaQ, test_Imag, test_sigmaImag = file_reader_2d("data\\27940.txt") #1d test case
+test_Q, test_I, test_sigmaI, test_sigmaQ, test_Imag, test_sigmaImag = file_reader_2d("data\\1.2-100h.txt") #1d test case
 tensor_I = torch.tensor(test_I)
 tensor_sigmaI = torch.tensor(test_sigmaI)
 print(tensor_sigmaI.shape)
@@ -453,240 +462,16 @@ jointfit_params = params + params_mag_1
 
 beta = 6 #smaller beta makes search more aggressive
 dof = test_I.shape[0]-bounds.shape[1] #degree of freedom for chi2
+if log_Ibg_mag is not None:
+    dof_mag = dof
+else:
+    dof_mag = dof + 2
 #initial guess values
 n_init = 100
 
-t0 = time.time()
-X = bounds[0] + (bounds[1] - bounds[0]) * torch.rand(n_init, bounds.shape[1])
-X_mag = bounds_mag[0] + (bounds_mag[1]-bounds_mag[0])*torch.rand(n_init, bounds_mag.shape[1])
-#print(X.shape)
-#print(X.shape[-1])
-#print(bounds.shape)
-#print(X)
 
-if distribution_type == "double":
-    Y = chi2_final_intensity_spheroid_BO_double(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
-    if log_Ibg_mag is not None:
-        Y_mag = chi2_final_intensity_spheroid_BO_double(X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-    else:
-        Y_mag = chi2_nano_intensity_spheroid_BO_double(X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-else:
-    Y = chi2_final_intensity_spheroid_BO_single(X,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
-    if log_Ibg_mag is not None:
-        Y_mag = chi2_final_intensity_spheroid_BO_single(X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-    else:
-        Y_mag = chi2_nano_intensity_spheroid_BO_single(X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-   
-
-
-#if distribution_type == "double":
-#    Y,reward_variance = chi2_final_intensity_spheroid_BO_double_with_reward(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
-#else:
-#    Y,reward_variance = chi2_final_intensity_spheroid_BO_single_with_reward(X,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
-Y = Y.unsqueeze(-1)
-#Y_variance = log_chi2_red_variance(Y,dof)
-#reward_variance = reward_variance.unsqueeze(-1)
-
-Y_mag = Y_mag.unsqueeze(-1)
-
-#print(Y)
-
-t1 = time.time()
-print(f"initial random guess took {t1-t0:.1f}s")
-#print(X.shape)        # should be (50, 5)
-#print(Y.shape)        # should be (50, 1) — note: must be 2D
-#print(torch.isnan(Y).any())   # must be False
-#print(torch.isinf(Y).any())   # must be False
-#print(Y.dtype)        # should be float32 or float64
-#print(Y)
-#BO loop
-
-log_Y = torch.log(Y)
-log_Y_mag = torch.log(Y_mag)
-
-
-for iteration in range(max_iteration_BO):
-    #with warnings.catch_warnings():
-    #    warnings.simplefilter('error', category=RuntimeWarning)
-    #    try: 
-            #print(Y_variance.min(), Y_variance.max())
-            t0 = time.time()
-            s2_Y = log_Y.var()
-            Y_variance = log_chi2_red_variance(Y,dof,s2=s2_Y)
-            model_gp = build_model(X,log_Y,Y_variance,beta)
-            
-            #print(s2_Y)
-            #print((Y_variance / s2_Y).min(), (Y_variance / s2_Y).max())
-            acq = LogNoisyExpectedImprovement(model_gp,X,maximize=False)
-            #acq = get_acq_LogEI(X,Y,Y_variance,beta)
-            t1 = time.time()
-            print(f"get_acq took {t1-t0:.1f}s")
-            candidate, _ = optimize_acqf(
-                acq_function=acq,
-                bounds=bounds,
-                q=1,
-                num_restarts=10,
-                raw_samples=512,
-            )
-            t2 = time.time()
-            print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
-                new_Y = chi2_final_intensity_spheroid_BO_double(candidate,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
-            else:
-                new_Y = chi2_final_intensity_spheroid_BO_single(candidate,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
-            t3 = time.time()
-            print(f"chi2 took {t3-t2:.1f}s")
-            new_Y = new_Y.unsqueeze(-1)
-            new_log_Y = torch.log(new_Y)
-            #new_variance = log_chi2_red_variance(new_Y,dof,s2=s2_Y)
-            # Update dataset
-            X = torch.cat([X, candidate])
-            Y = torch.cat([Y, new_Y])
-            log_Y = torch.cat([log_Y,new_log_Y])
-            
-            #Y_variance = torch.cat([Y_variance,new_variance])
-            print(f"Iteration {iteration}: best Y = {Y.min().item():.4f}, new candidate = {candidate}")
-            condition = (Y >= 0.9) & (Y <= 2.0)
-            count = torch.sum(condition).item()
-            if count >= 3:
-                #indices = torch.nonzero(condition)
-                print(f"Acceptable fit: chi2_red = {Y.min().item():.3f}")
-                break
-    #    except RuntimeWarning as e:
-    #        print(f"BO loop Warning at iteration {iteration}: {e}")
-best_idx = torch.argmin(Y)
-print("Best theta:", X[best_idx])
-print("Best chi2:", Y[best_idx])
-
-if torch.any(condition).item(): 
-    condition = condition.squeeze(1)
-    #indices = torch.nonzero(condition)
-    startpoints = X[condition]
-    if count != 1:
-        BO_candidates = startpoints.detach().cpu().numpy()
-    else:
-        BO_candidates = [X[best_idx].detach().cpu().numpy()]
-else:
-    BO_candidates = [X[best_idx].detach().cpu().numpy()]
-    #BO_candidates.reshape(1,bounds.shape[1])
-print("BO_candidates:", BO_candidates)
-if distribution_type == "double":
-    result = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
-else:
-    result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
-
-print(f"Best result: Parameters = {result.x}, chi2_red = {result.cost*2/dof:.4f}")
-
-J = result.jac #jacobian
-H_approx = J.T @ J #hessian approximation
-cov = np.linalg.inv(H_approx) #covariance matrix
-uncertainties = np.sqrt(np.diag(cov)) #fit uncertainties
-
-
-### Now do the same for magnetic scattering ###
-for iteration in range(max_iteration_BO):
-    #with warnings.catch_warnings():
-    #    warnings.simplefilter('error', category=RuntimeWarning)
-    #    try: 
-            #print(Y_variance.min(), Y_variance.max())
-            t0 = time.time()
-            s2_Y_mag = log_Y_mag.var()
-            Y_mag_variance = log_chi2_red_variance(Y_mag,dof,s2=s2_Y_mag)
-            model_gp_mag = build_model(X_mag,log_Y_mag,Y_mag_variance,beta)
-            
-            #print(s2_Y)
-            #print((Y_variance / s2_Y).min(), (Y_variance / s2_Y).max())
-            acq_mag = LogNoisyExpectedImprovement(model_gp_mag,X_mag,maximize=False)
-            #acq = get_acq_LogEI(X,Y,Y_variance,beta)
-            t1 = time.time()
-            print(f"get_acq took {t1-t0:.1f}s")
-            candidate_mag, _ = optimize_acqf(
-                acq_function=acq_mag,
-                bounds=bounds_mag,
-                q=1,
-                num_restarts=10,
-                raw_samples=512,
-            )
-            t2 = time.time()
-            print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
-                if log_Ibg_mag is not None:
-                    new_Y_mag = chi2_final_intensity_spheroid_BO_double(candidate_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-                else:
-                    new_Y_mag = chi2_nano_intensity_spheroid_BO_double(candidate_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-            else:
-                if log_Ibg_mag is not None:
-                    new_Y_mag = chi2_final_intensity_spheroid_BO_single(candidate_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-                else:
-                    new_Y_mag = chi2_nano_intensity_spheroid_BO_single(candidate_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-            t3 = time.time()
-            print(f"chi2 took {t3-t2:.1f}s")
-            new_Y_mag = new_Y_mag.unsqueeze(-1)
-            new_log_Y_mag = torch.log(new_Y_mag)
-            #new_variance_mag = log_chi2_red_variance(new_Y_mag,dof,s2=s2_Y_mag)
-            # Update dataset
-            X_mag = torch.cat([X_mag, candidate_mag])
-            Y_mag = torch.cat([Y_mag, new_Y_mag])
-            log_Y_mag = torch.cat([log_Y_mag,new_log_Y_mag])
-            
-            #Y_mag_variance = torch.cat([Y_mag_variance,new_variance_mag])
-            print(f"Iteration {iteration}: best Ymag = {Y_mag.min().item():.4f}, new candidate = {candidate_mag}")
-            condition_mag = (Y_mag >= 0.9) & (Y_mag <= 2.0)
-            count = torch.sum(condition_mag).item()
-            if count >= 3:
-                #indices_mag = torch.nonzero(condition_mag)
-                print(f"Acceptable fit: chi2_red = {Y_mag.min().item():.3f}")
-                break
-    #    except RuntimeWarning as e:
-    #        print(f"BO loop Warning at iteration {iteration}: {e}")
-best_idx_mag = torch.argmin(Y_mag)
-print("Best theta mag:", X_mag[best_idx_mag])
-print("Best chi2 mag:", Y_mag[best_idx_mag])
-
-if torch.any(condition_mag).item():
-    condition_mag = condition_mag.squeeze(1)
-    #indices_mag = torch.nonzero(condition_mag)
-    startpoints_mag = X_mag[condition_mag]
-    if count != 1:
-        BO_candidates_mag = startpoints_mag.detach().cpu().numpy()
-    else:
-        BO_candidates_mag = [X_mag[best_idx_mag].detach().cpu().numpy()]
-else:
-    BO_candidates_mag = [X_mag[best_idx_mag].detach().cpu().numpy()]
-    #BO_candidates_mag.reshape(1,bounds_mag.shape[1])
-
-#BO_candidates_mag = [[4.32468673, 2.52696484, 0.21628018]]
-#print("BO_candidates_mag:", BO_candidates_mag)
-#print(fixed_kwargs)
-#print(params)
-if log_Ibg_mag is not None:
-    params_firstfit_mag = params
-else:
-    params_firstfit_mag = copy.deepcopy(params)
-    params_firstfit_mag.pop(0)
-    params_firstfit_mag.pop(0)
-    print("params_firstfit_mag:", params_firstfit_mag)
-if distribution_type == "double":
-    result_mag = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params_firstfit_mag,fixed_kwargs,BO_candidates_mag)
-else:
-    result_mag = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params_firstfit_mag,fixed_kwargs,BO_candidates_mag)
-
-print(f"Best result: Parameters = {result_mag.x}, chi2_red = {result_mag.cost*2/dof:.4f}")
-
-J_mag = result_mag.jac #jacobian
-H_approx_mag = J_mag.T @ J_mag #hessian approximation
-cov_mag = np.linalg.inv(H_approx_mag) #covariance matrix
-uncertainties_mag = np.sqrt(np.diag(cov_mag)) #fit uncertainties
-
-
-
-
-### Joint fit ###
-jointstart = np.array(result.x)
-jointstart_mag = np.array(result_mag.x)
-
-#jointstart = np.array([-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942])
-#jointstart_mag = np.array([4.37764956,2.70738054,0.18221415])
+jointstart = np.array([-4.9,-6.217,5.813,8.227,0.211])
+jointstart_mag = np.array([3.867,7.807,0.205])
 #construct BO bounds
 bounds_jointfit = [[jointstart[0]-joint_searchwidth[0],jointstart[0]+joint_searchwidth[0]],
                    [jointstart[1]-joint_searchwidth[1],jointstart[1]+joint_searchwidth[1]],
@@ -705,6 +490,7 @@ for i in range(3, jointstart.size):
     
     bounds_jointfit.append(current_bound)
 
+print(bounds_jointfit)
 #add mag specific bounds
 if log_Ibg_mag is not None:
     decrement = 0
@@ -724,129 +510,188 @@ if distribution_type == "double":
 else:
     if model_1 == "core-shell":
         bounds_mag_joint.append([jointstart_mag[pos_array_mu_1-decrement]-joint_searchwidth[pos_array_mu_1],jointstart_mag[pos_array_mu_1-decrement]+joint_searchwidth[pos_array_mu_1]])
-
+print(bounds_mag_joint)
 bounds_final = torch.tensor(bounds_jointfit+bounds_mag_joint)
 bounds_final = bounds_final.T
 
-###inital guess values
-n_init_jointfit = 100
-jointfit_X = bounds_final[0] + (bounds_final[1]-bounds_final[0])*torch.rand(n_init_jointfit,bounds_final.shape[1])
-#beta_jointfit = 3.0/(1/bounds_final.shape[1]**0.5)
-beta_jointfit = 6
-#construct separate starter values
-jointfit_X_nuc = jointfit_X[:,:num_parameters]
-jointfit_X_mag = jointfit_X_nuc.clone()
 
-jointfit_X_mag[:, nuc_pos_list] = jointfit_X[:, num_parameters+torch.tensor(mag_pos_list)]
+###build discrepancy fit bounds from jointfit bounds
+bounds_discrepancy_joint = copy.deepcopy(bounds_jointfit)
+bounds_discrepancy_joint.append(range_model_discrepancy_log)
+print(bounds_discrepancy_joint)
+bounds_discrepancy_mag_joint = copy.deepcopy(bounds_mag_joint)
+bounds_discrepancy_mag_joint.append(range_model_discrepancy_log)
+print(bounds_discrepancy_mag_joint)
+bounds_discrepancy_final_LBFGS = bounds_discrepancy_joint + bounds_discrepancy_mag_joint
+bounds_for_LBFGS = [tuple(pair) for pair in bounds_discrepancy_final_LBFGS]
+bounds_discrepancy_final = torch.tensor(bounds_discrepancy_joint+bounds_discrepancy_mag_joint)
+bounds_discrepancy_final = bounds_discrepancy_final.T
+print(bounds_discrepancy_final.shape)
+
+###inital guess values
+n_init_discrepancy = 100
+discrepancy_X = bounds_discrepancy_final[0] + (bounds_discrepancy_final[1]-bounds_discrepancy_final[0])*torch.rand(n_init_discrepancy,bounds_discrepancy_final.shape[1])
+#beta_discrepancy = 3.0/(1/bounds_discrepancy_final.shape[1]**0.5)
+beta_discrepancy = 6
+#construct separate starter values
+discrepancy_X_nuc = discrepancy_X[:,:num_parameters+1]
+
+discrepancy_X_mag = discrepancy_X_nuc.clone()
+
+discrepancy_X_mag[:, nuc_pos_list] = discrepancy_X[:, num_parameters+1+torch.tensor(mag_pos_list)]
+discrepancy_X_mag[:,-1] = discrepancy_X[:,-1]
 if log_Ibg_mag is None:
-    jointfit_X_mag = jointfit_X_mag[:,2:]
+    discrepancy_X_mag = discrepancy_X_mag[:,2:]
+
 #initialize Y values
 if distribution_type == "double":
-    jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+    discrepancy_Y_nuc, discrepancy_Y_nuc_residual = log_chi2_final_intensity_spheroid_BO_double_separate(discrepancy_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None:
-        jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        discrepancy_Y_mag, discrepancy_Y_mag_residual = log_chi2_final_intensity_spheroid_BO_double_separate(discrepancy_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
     else:
-        jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_double(jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        discrepancy_Y_mag, discrepancy_Y_mag_residual = log_chi2_nano_intensity_spheroid_BO_double_separate(discrepancy_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
 else:
-    jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_single(jointfit_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+    discrepancy_Y_nuc, discrepancy_Y_nuc_residual= log_chi2_final_intensity_spheroid_BO_single_separate(discrepancy_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None: 
-        jointfit_Y_mag = chi2_final_intensity_spheroid_BO_single(jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        discrepancy_Y_mag, discrepancy_Y_mag_residual = log_chi2_final_intensity_spheroid_BO_single_separate(discrepancy_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
     else:
-        jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_single(jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        discrepancy_Y_mag, discrepancy_Y_mag_residual = log_chi2_nano_intensity_spheroid_BO_single_separate(discrepancy_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
 
-jointfit_Y_nuc = jointfit_Y_nuc.unsqueeze(-1)
-jointfit_Y_mag = jointfit_Y_mag.unsqueeze(-1)
-jointfit_Y = jointfit_Y_nuc + jointfit_Y_mag 
-
-
-
-log_Y_jointfit = torch.log(jointfit_Y)
-
+discrepancy_Y_nuc = discrepancy_Y_nuc.unsqueeze(-1)
+discrepancy_Y_nuc_residual = discrepancy_Y_nuc_residual.unsqueeze(-1)
+discrepancy_Y_mag = discrepancy_Y_mag.unsqueeze(-1)
+discrepancy_Y_mag_residual = discrepancy_Y_mag_residual.unsqueeze(-1)
+discrepancy_Y = discrepancy_Y_nuc + discrepancy_Y_mag #corresponds to tampered chi2
+discrepancy_Y_residual = discrepancy_Y_nuc_residual + discrepancy_Y_mag_residual # gaussian normalization residual term
+discrepancy_Y_total = discrepancy_Y + discrepancy_Y_residual
+log_discrepancy_Y_total = torch.log(discrepancy_Y_total)
+log_discrepancy_Y_total_best = None
+acceptable_candidates = []
+count = 0
+print(dof,dof_mag)
 #BO iteration
 for iteration in range(max_iteration_BO):
-    s2_jointfit = log_Y_jointfit.var()
-    jointfit_Y_variance = joint_log_chi2_red_variance(jointfit_Y_nuc,jointfit_Y_mag,dof,s2_jointfit)
-    model_gp = build_model(jointfit_X,log_Y_jointfit,jointfit_Y_variance,beta)
-    
-    acq = LogNoisyExpectedImprovement(model_gp,jointfit_X,maximize = False)
+    model_gp = build_model_discrepancy(discrepancy_X,log_discrepancy_Y_total,beta_discrepancy)
+    best_f = discrepancy_Y_total.min().item()
+    acq = LogExpectedImprovement(model_gp,best_f,maximize = False)
     candidate,_ = optimize_acqf(
         acq_function = acq,
-        bounds = bounds_final,
+        bounds = bounds_discrepancy_final,
         q = 1,
         num_restarts = 20,
         raw_samples = 512,
     )
-    new_jointfit_X_nuc = candidate[:,:num_parameters]
-    new_jointfit_X_mag = new_jointfit_X_nuc.clone()
-    new_jointfit_X_mag[:, nuc_pos_list] = candidate[:, num_parameters+torch.tensor(mag_pos_list)]
+    new_discrepancy_X_nuc = candidate[:,:num_parameters+1]
+    new_discrepancy_X_mag = new_discrepancy_X_nuc.clone()
+    new_discrepancy_X_mag[:, nuc_pos_list] = candidate[:, num_parameters+1+torch.tensor(mag_pos_list)]
+    new_discrepancy_X_mag[:,-1] = candidate[:,-1]
     if log_Ibg_mag is None:
-        new_jointfit_X_mag = new_jointfit_X_mag[:,2:]
+        new_discrepancy_X_mag = new_discrepancy_X_mag[:,2:]
     if distribution_type == "double":
-        new_jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        new_discrepancy_Y_nuc, new_discrepancy_Y_nuc_residual = log_chi2_final_intensity_spheroid_BO_double_separate(new_discrepancy_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
-            new_jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            new_discrepancy_Y_mag, new_discrepancy_Y_mag_residual = log_chi2_final_intensity_spheroid_BO_double_separate(new_discrepancy_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
         else:
-            new_jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_double(new_jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            new_discrepancy_Y_mag, new_discrepancy_Y_mag_residual = log_chi2_nano_intensity_spheroid_BO_double_separate(new_discrepancy_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
     else:
-        new_jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_single(new_jointfit_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        new_discrepancy_Y_nuc, new_discrepancy_Y_nuc_residual = log_chi2_final_intensity_spheroid_BO_single_separate(new_discrepancy_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None: 
-            new_jointfit_Y_mag = chi2_final_intensity_spheroid_BO_single(new_jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+            new_discrepancy_Y_mag, new_discrepancy_Y_mag_residual = log_chi2_final_intensity_spheroid_BO_single_separate(new_discrepancy_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
         else:
-            new_jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_single(new_jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-    new_jointfit_Y_nuc = new_jointfit_Y_nuc.unsqueeze(-1)
-    new_jointfit_Y_mag = new_jointfit_Y_mag.unsqueeze(-1)
-    new_jointfit_Y = new_jointfit_Y_nuc + new_jointfit_Y_mag
-    new_log_Y_jointfit = torch.log(new_jointfit_Y)
-    #new_jointfit_Y_variance = joint_log_chi2_red_variance(new_jointfit_Y_nuc,new_jointfit_Y_mag,dof)
-    jointfit_X = torch.cat([jointfit_X, candidate])
-    jointfit_Y_nuc = torch.cat([jointfit_Y_nuc, new_jointfit_Y_nuc])
-    jointfit_Y_mag = torch.cat([jointfit_Y_mag, new_jointfit_Y_mag])
-    jointfit_Y = torch.cat([jointfit_Y, new_jointfit_Y])
-    log_Y_jointfit = torch.cat([log_Y_jointfit, new_log_Y_jointfit])
+            new_discrepancy_Y_mag, new_discrepancy_Y_mag_residual = log_chi2_nano_intensity_spheroid_BO_single_separate(new_discrepancy_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    new_discrepancy_Y_nuc = new_discrepancy_Y_nuc.unsqueeze(-1)
+    new_discrepancy_Y_nuc_residual = new_discrepancy_Y_nuc_residual.unsqueeze(-1)
+    new_discrepancy_Y_mag = new_discrepancy_Y_mag.unsqueeze(-1)
+    new_discrepancy_Y_mag_residual = new_discrepancy_Y_mag_residual.unsqueeze(-1)
+    new_discrepancy_Y = new_discrepancy_Y_nuc + new_discrepancy_Y_mag 
+    new_discrepancy_Y_residual = new_discrepancy_Y_nuc_residual + new_discrepancy_Y_mag_residual
+    new_discrepancy_Y_total = new_discrepancy_Y + new_discrepancy_Y_residual
+    new_log_discrepancy_Y_total = torch.log(new_discrepancy_Y_total)
+    
+    discrepancy_X = torch.cat([discrepancy_X, candidate])
+    discrepancy_Y_nuc = torch.cat([discrepancy_Y_nuc, new_discrepancy_Y_nuc])
+    discrepancy_Y_nuc_residual = torch.cat([discrepancy_Y_nuc_residual, new_discrepancy_Y_nuc_residual])
+    discrepancy_Y_mag = torch.cat([discrepancy_Y_mag, new_discrepancy_Y_mag])
+    discrepancy_Y_mag_residual = torch.cat([discrepancy_Y_mag_residual, new_discrepancy_Y_mag_residual])
+    discrepancy_Y = torch.cat([discrepancy_Y, new_discrepancy_Y])
+    discrepancy_Y_residual = torch.cat([discrepancy_Y_residual, new_discrepancy_Y_residual])
+    discrepancy_Y_total = torch.cat([discrepancy_Y_total, new_discrepancy_Y_total])
+    log_discrepancy_Y_total = torch.cat([log_discrepancy_Y_total, new_log_discrepancy_Y_total])
     #jointfit_Y_variance = torch.cat([jointfit_Y_variance,new_jointfit_Y_variance])
-    print(f"Iteration {iteration}: best target = {jointfit_Y.min().item():.4f}, new candidate = {candidate}")
-
-    condition_jointfit = (jointfit_Y >= 1.6) & (jointfit_Y <= 4.0)
-    count = torch.sum(condition_jointfit).item()
+    print(f"Iteration {iteration}: best target = {discrepancy_Y_total.min().item():.4f}, new candidate = {candidate}")
+    ### check for acceptable candidates
+    if log_discrepancy_Y_total_best is None:
+        log_discrepancy_Y_total_best = log_discrepancy_Y_total.min().item()
+    if log_discrepancy_Y_total_best > new_log_discrepancy_Y_total.item():
+        log_discrepancy_Y_total_best = new_log_discrepancy_Y_total.item()
+    if iteration == min_discrepancy_allowance:
+        condition_firstcheck = (log_discrepancy_Y_total <= log_discrepancy_Y_total_best + logspace_tolerance).squeeze(1)# if log space chi2 is sufficiently good
+        #count = torch.sum(condition_firstcheck).item()
+        indices = torch.nonzero(condition_firstcheck)
+        #print(indices)
+        #now check equivalent chi2 and model error
+        #acceptable_candidates = discrepancy_X[condition_firstcheck]
+        for idx in indices:
+            if (discrepancy_Y_nuc[idx].item()/dof >= 0.5) & (discrepancy_Y_nuc[idx].item()/dof <= 2) & (discrepancy_Y_mag[idx].item()/dof_mag >= 0.5) & (discrepancy_Y_mag[idx].item()/dof_mag <= 2):
+                if (discrepancy_X_nuc[idx][-1].item() > 0.01) & (discrepancy_X_nuc[idx][-1].item() < 0.8) (discrepancy_X_mag[idx][-1].item() > 0.01) & (discrepancy_X_mag[idx][-1].item() < 0.8):
+                    acceptable_candidates.append(discrepancy_X[idx].tolist())
+                    count = count + 1
+    if  iteration > min_discrepancy_allowance:
+        if new_discrepancy_Y_total <= log_discrepancy_Y_total_best + logspace_tolerance:    
+            if (new_discrepancy_Y_nuc.item()/dof >= 0.5) & (new_discrepancy_Y_nuc.item()/dof <= 2) & (new_discrepancy_Y_mag.item()/dof_mag >= 0.5) & (new_discrepancy_Y_mag.item()/dof_mag <= 2):
+                if (new_discrepancy_X_nuc[-1].item() > 0.01) & (new_discrepancy_X_nuc[-1].item() < 0.8) (new_discrepancy_X_mag[-1].item() > 0.01) & (new_discrepancy_X_mag[-1].item() < 0.8):
+                    count = count + 1
+                    acceptable_candidates.append(candidate.tolist())
     if count >= 5:
         #indices = torch.nonzero(condition)
         #print(f"Acceptable fit: chi2_red = {Y.min().item():.3f}")
         break
 
-best_idx_jointfit = torch.argmin(jointfit_Y)
-print("Best theta:", jointfit_X[best_idx_jointfit])
-print("Best combined chi2:", jointfit_Y[best_idx_jointfit])
-if torch.any(condition_jointfit).item():
-    condition_jointfit = condition_jointfit.squeeze(1)
-    #indices_jointfit = torch.nonzero(condition_jointfit)
-    startpoints_jointfit = jointfit_X[condition_jointfit]
-    if count != 1:
-        BO_candidates_jointfit = startpoints_jointfit.detach().cpu().numpy()
-    else:
-        BO_candidates_jointfit = [jointfit_X[best_idx_jointfit].detach().cpu().numpy()]
+best_idx_discrepancy = torch.argmin(discrepancy_Y_total)
+print("Best theta:", discrepancy_X[best_idx_discrepancy])
+print("Best combined chi2:", discrepancy_Y[best_idx_discrepancy])
+print("acceptable candidates:", acceptable_candidates)
+
+
+
+if not acceptable_candidates:
+    startpoints_discrepancyfit = [discrepancy_X[best_idx_discrepancy].detach().cpu().numpy()]
 else:
-    BO_candidates_jointfit = [jointfit_X[best_idx_jointfit].detach().cpu().numpy()]
-    #BO_candidates_jointfit.reshape(1,bounds_final.shape[1])
+    startpoints_discrepancyfit = np.array(acceptable_candidates)
 
 
+
+###L-BFGS-B 
+LBFGS_params = params + ['discrepancy_nuc'] + params_mag_1 + ['discrepancy_mag']
 if distribution_type == "double":
-    residual_nuc = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
-    residual_mag = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
-    joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
-    result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
+    loss_nuc = make_discrepancy_loss_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,LBFGS_params,'discrepancy_nuc')
+    loss_mag = make_discrepancy_loss_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,LBFGS_params,'discrepancy_mag')
+    combined_loss = make_discrepancy_loss(loss_nuc,loss_mag)
+    result_LBFGS = LBFGS_optimize(combined_loss,startpoints_discrepancyfit,bounds_for_LBFGS)
 else:
-    residual_nuc = make_residuals_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
-    residual_mag = make_residuals_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
-    joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
-    result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
-
-J_jointfit_1 = result_jointfit_1.jac #jacobian
-H_approx_jointfit_1 = J_jointfit_1.T @ J_jointfit_1 #hessian approximation
-cov_jointfit_1 = np.linalg.inv(H_approx_jointfit_1) #covariance matrix
-uncertainties_jointfit_1 = np.sqrt(np.diag(cov_jointfit_1)) #fit uncertainties
-
-print(f"Best result: Parameters = {result_jointfit_1.x}, chi2_red = {result_jointfit_1.cost*2/dof:.4f}")
-
-#best_res = [-6.07625239,-7.1911287,6.40700473,2.6865214,0.18886009,4.37529018]
+    loss_nuc = make_discrepancy_loss_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,LBFGS_params,'discrepancy_nuc')
+    loss_mag = make_discrepancy_loss_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,LBFGS_params,'discrepancy_mag')
+    combined_loss = make_discrepancy_loss(loss_nuc,loss_mag)
+    result_LBFGS = LBFGS_optimize(combined_loss,startpoints_discrepancyfit,bounds_for_LBFGS)
+### post treatment
+for points in result_LBFGS:
+    print(points)
+    m = len(points)
+    points_nuc = points[:num_parameters+1]
+    points_mag = copy.deepcopy(points_nuc)
+    for j, src_col in zip(nuc_pos_list, mag_pos_list):
+        points_mag[j] = points[num_parameters+1+src_col]
+    points_mag[-1] = points[-1]
+    if log_Ibg_mag is None:
+        points_mag = points_mag[2:]
+    equivalent_chi2_nuc = loss_nuc(points)
+    model_discrepancy_nuc = np.exp(points_nuc[-1])
+    equivalent_chi2_mag = loss_mag(points)
+    model_discrepancy_mag = np.exp(points_mag[-1])
+    print("Nuclear discrepancy fit result:")
+    print("chi2_eq:", equivalent_chi2_nuc)
+    print("Model discrepancy:", model_discrepancy_nuc)
+    print("Magnetic discrepancy fit result:")
+    print("chi2_eq:", equivalent_chi2_mag)
+    print("Model discrepancy:", model_discrepancy_mag)
+    

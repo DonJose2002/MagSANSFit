@@ -30,6 +30,18 @@ def file_reader_2d(path): #reads scattering signal file and returns numpy array
     I_mag = filtered_arr[:,4] - filtered_arr[:,1]
     sigmaI_mag = filtered_arr[:,2] + filtered_arr[:,5]
     return Q,I_nuc,sigmaI_nuc,sigmaQ_nuc,I_mag,sigmaI_mag
+
+def file_reader_2d_noise_filter(path): #reads nuc+mag scattering file and discards points with too large error
+    df = pd.read_csv(path, sep=r'\s+', header=0)
+    filtered_df = df[(df.iloc[:,1]>0) & (df.iloc[:,4]>df.iloc[:,1]) & (df.iloc[:,1]>df.iloc[:,2]) & (df.iloc[:,4]-df.iloc[:,1]>df.iloc[:,2]+df.iloc[:,5])]
+    filtered_arr = filtered_df.to_numpy()
+    Q = filtered_arr[:,0]
+    I_nuc = filtered_arr[:,1]
+    sigmaI_nuc = filtered_arr[:,2]
+    sigmaQ_nuc = filtered_arr[:,3]
+    I_mag = filtered_arr[:,4] - filtered_arr[:,1]
+    sigmaI_mag = filtered_arr[:,2] + filtered_arr[:,5]
+    return Q,I_nuc,sigmaI_nuc,sigmaQ_nuc,I_mag,sigmaI_mag
 """
 def data_interpreter_1d(data_arr): #separates 1d signal info into corresponding arrays
     #first filter all negative signals
