@@ -218,3 +218,40 @@ def make_discrepancy_loss(loss1,loss2):
         res = loss_nuc+loss_mag
         return res
     return discrepancy_loss
+
+def make_equivalent_chi2_loss_from_slice(func,x_array,x_name, experiment, uncertainty, param_names, fixed_kwargs, all_param_names, discrepancy):
+    sig = inspect.signature(func)
+    all_args = set(sig.parameters.keys())
+    
+    provided = set(param_names) | set(fixed_kwargs.keys()) | {x_name}
+    unknown  = provided - all_args
+
+    # ignore parameters that have defaults and weren't provided
+    required = {
+        name for name, p in sig.parameters.items()
+        if p.default is inspect.Parameter.empty
+    }
+    missing_required = required - provided
+
+    if missing_required:
+        raise ValueError(f"Required arguments not provided: {missing_required}")
+    if unknown:
+        raise ValueError(f"Unrecognised argument names: {unknown}")
+    overlap = set(param_names) & set(fixed_kwargs.keys())
+    if overlap:
+        raise ValueError(f"Arguments appear in both param_names and fixed_kwargs: {overlap}")
+    def residuals(params):
+        local_params = np.array([
+            params[all_param_names.index(name)]
+            for name in param_names
+        ])
+        
+        optimized = dict(zip(param_names, local_params))
+        shared_kwargs = {**fixed_kwargs, **optimized}
+        y_model = np.array([
+            func(**{**shared_kwargs, x_name: xi})
+            for xi in x_array
+        ])
+        model_discrepancy = np.exp(params[all_param_names.index(discrepancy)])
+        return np.sum((np.log(experiment)-np.log(y_model))**2/((uncertainty/y_model)**2+model_discrepancy**2))
+    return residuals
