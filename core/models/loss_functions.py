@@ -210,6 +210,24 @@ def make_joint_residuals(residuals_1, residuals_2, dof = None, target_chi2_red =
                 raise TargetChi2Reached(params.copy())
         return r
     return residuals
+"""
+make_weighted_joint_residuals: creates single weighted residual function based on input lambda coefficient.
+used for pareto sweep
+"""
+def make_weighted_joint_residuals(residuals_1, residuals_2, lambda_coeff, dof_1, dof_2, target_chi2_red = 1.0, tolerance = 0.2, stop = True):
+    def residuals(params):
+        r1 = residuals_1(params)
+        w1 = np.sqrt(lambda_coeff/dof_1)
+        w2 = np.sqrt((1-lambda_coeff)/dof_2)
+        r2 = residuals_2(params)
+        r = np.concatenate([w1*r1,w2*r2])
+        if stop:
+            chi2_red_1 = np.sum(r1**2)/dof_1
+            chi2_red_2 = np.sum(r2**2)/dof_2
+            if (abs(chi2_red_1 - target_chi2_red) < tolerance) & (abs(chi2_red_2 - target_chi2_red) < tolerance):
+                raise TargetChi2Reached(params.copy())
+        return r
+    return residuals
 
 def make_discrepancy_loss(loss1,loss2):
     def discrepancy_loss(params):
