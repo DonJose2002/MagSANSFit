@@ -13,9 +13,9 @@ from core.models.BO_model_fixed import chi2_final_intensity_spheroid_BO_double_f
 from core.models.loss_functions import loss_chi2,make_residual, make_residual_nostop, TargetChi2Reached,make_joint_residuals,make_residuals_from_slice,make_weighted_joint_residuals
 from core.utils.file_reader import file_reader_1d,file_reader_2d,file_reader_1d_nofilter
 from core.acquisition.acquisition_functions import get_acq_qLogEI,get_acq_LogEI,build_model,build_model_nonoise
-from core.utils.helper_functions import objective,chi2_red_variance,log_chi2_red_variance,joint_log_chi2_red_variance,construct_joint_bounds,construct_joint_parameters,separate_nuc_mag_parameters,assemble_theta
+from core.utils.helper_functions import objective,chi2_red_variance,log_chi2_red_variance,joint_log_chi2_red_variance,construct_joint_bounds,construct_joint_parameters,separate_nuc_mag_parameters,assemble_theta,separate_nuc_mag_parameters_tensor
 from core.optimizer.Levenberg_Marquardt import LM_optimize,LM_joint_optimize
-
+from core.models.single_loss import chi2_final_intensity_spheroid_double,chi2_final_intensity_spheroid_single,chi2_nano_intensity_spheroid_double,chi2_nano_intensity_spheroid_single
 
 
 from scipy.integrate import quad
@@ -34,6 +34,7 @@ from botorch.acquisition.analytic import LogNoisyExpectedImprovement,LogExpected
 import warnings
 import time
 import copy
+import math
 
 
 
@@ -42,7 +43,7 @@ torch.manual_seed(0)
 
 #BO loop settings
 max_iteration_BO = 75 #maximum BO loop number
-max_iteration_BO_Pareto = 25 #maximum pareto sequential BO loop number
+max_iteration_BO_Pareto = 50 #maximum pareto sequential BO loop number
 #reduced chi2 transform options
 target_chi2 = 1
 width_chi2 = 0.3
@@ -776,7 +777,7 @@ for s,v in zip(deleted_nuc_params,deleted_nuc_values):
 #print("bounds_mag_filtered:", bounds_mag_filtered)
 #do nuclear optimization starting from the fixed values
 
-
+"""
 X_filtered_nuc = bounds_nuc_filtered[0]+(bounds_nuc_filtered[1]-bounds_nuc_filtered[0])*torch.rand(n_init_fine,bounds_nuc_filtered.shape[1])
 X_filtered_mag = bounds_mag_filtered[0]+(bounds_mag_filtered[1]-bounds_mag_filtered[0])*torch.rand(n_init_fine,bounds_mag_filtered.shape[1])
 if distribution_type == "double":
@@ -866,9 +867,14 @@ print(f"Complement result nuc: Parameters = {filtered_res_nuc.x}, chi2_red = {fi
 filtered_res_nuc_np = np.array(filtered_res_nuc.x)
 assembled_theta_magside = assemble_theta(jointfit_params,nuc_params_filtered,filtered_res_nuc_np,mag_params_filtered,jointstart_mag_filtered,fixed_args_nuc_complement)
 print("Lamda = 0 (only magnetic influence) fit result:", assembled_theta_magside)
+"""
+assembled_theta_magside = [-6.06404703,-7.18891623,6.41047672,2.70738054,0.18221415,4.37764956]
+assembled_theta_magside_chi2_nuc = 1.2798
+assembled_theta_magside_chi2_mag = 1.3487788062955082
+
 ### Now do the same for mag scattering
 
-
+"""
 for iteration in range(max_iteration_BO_Pareto):
     model_gp = build_model_nonoise(X_filtered_mag,log_Y_filtered_mag,beta)
     best_f = log_Y_filtered_mag.min().item()
@@ -921,186 +927,267 @@ if distribution_type == "double":
     filtered_res_mag = LM_optimize(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params=mag_params_filtered,kwargs=fixed_args_mag_complement,startpoints=BO_filtered_mag_candidate)
 else:
     filtered_res_mag = LM_optimize(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params=mag_params_filtered,kwargs=fixed_args_mag_complement,startpoints=BO_filtered_mag_candidate)
-print(f"Complement result mag: Parameters = {filtered_res_mag.x}, chi2_red = {filtered_res_mag.cost*2/dof:.4f}")
+print(f"Complement result mag: Parameters = {filtered_res_mag.x}, chi2_red = {filtered_res_mag.cost*2/dof_mag:.4f}")
 
 filtered_res_mag_np = np.array(filtered_res_mag.x)
 assembled_theta_nucside = assemble_theta(jointfit_params,mag_params_filtered,filtered_res_mag_np,nuc_params_filtered,jointstart_nuc_filtered,fixed_args_mag_complement)
 print("Lamda = 1 (only nuclear influence) fit result:", assembled_theta_nucside)
+"""
+assembled_theta_nucside = [-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942,4.2834666]
+assembled_theta_nucside_chi2_mag = 3.930570346645365
+assembled_theta_nucside_chi2_nuc = 1.140017241955704
+
 
 ###### Begin Pareto Front Sweep ######
 # construct starting theta
 
-current_theta = construct_joint_parameters(jointstart,jointstart_mag,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
-print(current_theta)
+#current_theta = construct_joint_parameters(jointstart,jointstart_mag,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
+#print(current_theta)
+current_theta = [assembled_theta_magside]
 #construct lambda checklist
 list_lambda = np.concatenate((np.linspace(0.1,0.3,2,endpoint=False),np.linspace(0.3,0.7,8,endpoint=False),np.linspace(0.7,1.0,3,endpoint=False)))
 print(list_lambda)
+
+list_pareto_candidates = []
+list_pareto_chi2_red_nuc = []
+list_pareto_chi2_red_mag = []
+list_pareto_candidates.append(assembled_theta_magside)
+list_pareto_chi2_red_nuc.append(assembled_theta_magside_chi2_nuc)
+list_pareto_chi2_red_mag.append(assembled_theta_magside_chi2_mag)
+list_pareto_candidates.append(assembled_theta_nucside)
+list_pareto_chi2_red_nuc.append(assembled_theta_nucside_chi2_nuc)
+list_pareto_chi2_red_mag.append(assembled_theta_nucside_chi2_mag)
+
 ### Start Pareto Sweep ###
 for weight in list_lambda:
-    x = 1
-"""
-#construct BO bounds
-
-bounds_jointfit = [[jointstart[0]-joint_searchwidth[0],jointstart[0]+joint_searchwidth[0]],
-                   [jointstart[1]-joint_searchwidth[1],jointstart[1]+joint_searchwidth[1]],
-                   [jointstart[2]-joint_searchwidth[2],jointstart[2]+joint_searchwidth[2]]]
-
-
-for i in range(3, jointstart.size):
-    if i != pos_array_A_2 and i != pos_array_mu_1 and i != pos_array_mu_2:
-        if log_Ibg_mag is not None:
-            i_mag = i
-        else:
-            i_mag = i-2 #decrement by 2 to match position
-        current_bound = [max(jointstart[i]-joint_searchwidth[i],jointstart_mag[i_mag]-joint_searchwidth[i]),min(jointstart[i]+joint_searchwidth[i],jointstart_mag[i_mag]+joint_searchwidth[i])]
-    else:
-        current_bound = [jointstart[i]-joint_searchwidth[i],jointstart[i]+joint_searchwidth[i]]
-    
-    bounds_jointfit.append(current_bound)
-
-#add mag specific bounds
-if log_Ibg_mag is not None:
-    decrement = 0
-    bounds_mag_joint = [[jointstart_mag[0]-joint_searchwidth[0],jointstart_mag[0]+joint_searchwidth[0]],
-                [jointstart_mag[1]-joint_searchwidth[1],jointstart_mag[1]+joint_searchwidth[1]],
-                [jointstart_mag[2]-joint_searchwidth[2],jointstart_mag[2]+joint_searchwidth[2]]]
-else:
-    decrement = 2
-    bounds_mag_joint = [[jointstart_mag[0]-joint_searchwidth[2],jointstart_mag[0]+joint_searchwidth[2]]]
-
-if distribution_type == "double":
-    bounds_mag_joint.append([jointstart_mag[pos_array_A_2-decrement]-joint_searchwidth[pos_array_A_2],jointstart_mag[pos_array_A_2-decrement]+joint_searchwidth[pos_array_A_2]])
-    if model_1 == "core-shell":
-        bounds_mag_joint.append([jointstart_mag[pos_array_mu_1-decrement]-joint_searchwidth[pos_array_mu_1],jointstart_mag[pos_array_mu_1-decrement]+joint_searchwidth[pos_array_mu_1]])
-    if model_2 == "core-shell":
-        bounds_mag_joint.append([jointstart_mag[pos_array_mu_2-decrement]-joint_searchwidth[pos_array_mu_2],jointstart_mag[pos_array_mu_2-decrement]+joint_searchwidth[pos_array_mu_2]])
-else:
-    if model_1 == "core-shell":
-        bounds_mag_joint.append([jointstart_mag[pos_array_mu_1-decrement]-joint_searchwidth[pos_array_mu_1],jointstart_mag[pos_array_mu_1-decrement]+joint_searchwidth[pos_array_mu_1]])
-
-bounds_final = torch.tensor(bounds_jointfit+bounds_mag_joint)
-bounds_final = bounds_final.T
-
-###inital guess values
-n_init_jointfit = 100
-jointfit_X = bounds_final[0] + (bounds_final[1]-bounds_final[0])*torch.rand(n_init_jointfit,bounds_final.shape[1])
-#beta_jointfit = 3.0/(1/bounds_final.shape[1]**0.5)
-beta_jointfit = 6
-#construct separate starter values
-jointfit_X_nuc = jointfit_X[:,:num_parameters]
-jointfit_X_mag = jointfit_X_nuc.clone()
-
-jointfit_X_mag[:, nuc_pos_list] = jointfit_X[:, num_parameters+torch.tensor(mag_pos_list)]
-if log_Ibg_mag is None:
-    jointfit_X_mag = jointfit_X_mag[:,2:]
-#initialize Y values
-if distribution_type == "double":
-    jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
-    if log_Ibg_mag is not None:
-        jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-    else:
-        jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_double(jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
-else:
-    jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_single(jointfit_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
-    if log_Ibg_mag is not None: 
-        jointfit_Y_mag = chi2_final_intensity_spheroid_BO_single(jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-    else:
-        jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_single(jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-
-jointfit_Y_nuc = jointfit_Y_nuc.unsqueeze(-1)
-jointfit_Y_mag = jointfit_Y_mag.unsqueeze(-1)
-jointfit_Y = jointfit_Y_nuc + jointfit_Y_mag 
-
-
-
-log_Y_jointfit = torch.log(jointfit_Y)
-
-#BO iteration
-for iteration in range(max_iteration_BO):
-    s2_jointfit = log_Y_jointfit.var()
-    jointfit_Y_variance = joint_log_chi2_red_variance(jointfit_Y_nuc,jointfit_Y_mag,dof,s2_jointfit)
-    model_gp = build_model(jointfit_X,log_Y_jointfit,jointfit_Y_variance,beta)
-    
-    acq = LogNoisyExpectedImprovement(model_gp,jointfit_X,maximize = False)
-    candidate,_ = optimize_acqf(
-        acq_function = acq,
-        bounds = bounds_final,
-        q = 1,
-        num_restarts = 20,
-        raw_samples = 512,
-    )
-    new_jointfit_X_nuc = candidate[:,:num_parameters]
-    new_jointfit_X_mag = new_jointfit_X_nuc.clone()
-    new_jointfit_X_mag[:, nuc_pos_list] = candidate[:, num_parameters+torch.tensor(mag_pos_list)]
-    if log_Ibg_mag is None:
-        new_jointfit_X_mag = new_jointfit_X_mag[:,2:]
+    ### first do LM to approach solution, start sweep from lambda = 0 (magnetic scattering)
     if distribution_type == "double":
-        new_jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        residual_nuc_sweep = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
+        residual_mag_sweep = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
+    else:
+        residual_nuc_sweep = make_residuals_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
+        residual_mag_sweep = make_residuals_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
+    joint_residual_sweep = make_weighted_joint_residuals(residual_nuc_sweep,residual_mag_sweep,weight,dof,dof_mag)
+    joint_residual_sweep_nostop = make_weighted_joint_residuals(residual_nuc_sweep,residual_mag_sweep,weight,dof,dof_mag,stop=False)
+    result_joint_weighted_firstfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_theta)
+    print("weight:",weight, "First approximation:", result_joint_weighted_firstfit.x)
+    ### do a fine BO using this starting point
+    BO_startpoint_nuc, BO_startpoint_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_firstfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    bounds_BO_sweep = construct_joint_bounds(BO_startpoint_nuc,BO_startpoint_mag,joint_searchwidth_fine,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
+    X_sweep = bounds_BO_sweep[0]+(bounds_BO_sweep[1]-bounds_BO_sweep[0])*torch.rand(n_init_fine,bounds_BO_sweep.shape[1])
+    X_sweep_nuc, X_sweep_mag = separate_nuc_mag_parameters_tensor(X_sweep,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    if distribution_type == "double":
+        Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
-            new_jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
         else:
-            new_jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_double(new_jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            Y_sweep_mag = chi2_nano_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
     else:
-        new_jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_single(new_jointfit_X_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        Y_sweep_nuc = chi2_final_intensity_spheroid_BO_single(X_sweep_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None: 
-            new_jointfit_Y_mag = chi2_final_intensity_spheroid_BO_single(new_jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+            Y_sweep_mag = chi2_final_intensity_spheroid_BO_single(X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
         else:
-            new_jointfit_Y_mag = chi2_nano_intensity_spheroid_BO_single(new_jointfit_X_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-    new_jointfit_Y_nuc = new_jointfit_Y_nuc.unsqueeze(-1)
-    new_jointfit_Y_mag = new_jointfit_Y_mag.unsqueeze(-1)
-    new_jointfit_Y = new_jointfit_Y_nuc + new_jointfit_Y_mag
-    new_log_Y_jointfit = torch.log(new_jointfit_Y)
-    #new_jointfit_Y_variance = joint_log_chi2_red_variance(new_jointfit_Y_nuc,new_jointfit_Y_mag,dof)
-    jointfit_X = torch.cat([jointfit_X, candidate])
-    jointfit_Y_nuc = torch.cat([jointfit_Y_nuc, new_jointfit_Y_nuc])
-    jointfit_Y_mag = torch.cat([jointfit_Y_mag, new_jointfit_Y_mag])
-    jointfit_Y = torch.cat([jointfit_Y, new_jointfit_Y])
-    log_Y_jointfit = torch.cat([log_Y_jointfit, new_log_Y_jointfit])
-    #jointfit_Y_variance = torch.cat([jointfit_Y_variance,new_jointfit_Y_variance])
-    print(f"Iteration {iteration}: best target = {jointfit_Y.min().item():.4f}, new candidate = {candidate}")
+            Y_sweep_mag = chi2_nano_intensity_spheroid_BO_single(X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    
+    Y_sweep_nuc = Y_sweep_nuc.unsqueeze(-1)
+    Y_sweep_mag = Y_sweep_mag.unsqueeze(-1)
+    Y_sweep = Y_sweep_nuc*weight + Y_sweep_mag*(1-weight)
+    log_Y_sweep = torch.log(Y_sweep)
+    for iteration in range(max_iteration_BO_Pareto):
+        model_gp = build_model_nonoise(X_sweep,log_Y_sweep,beta)
+        best_f = log_Y_sweep.min().item()
+        acq = LogExpectedImprovement(model_gp,best_f,maximize=False)
+        candidate,_ = optimize_acqf(
+        acq_function=acq,
+        bounds = bounds_BO_sweep,
+        q = 1,
+        num_restarts=10,
+        raw_samples=256,
+    )
+        new_X_sweep_nuc, new_X_sweep_mag = separate_nuc_mag_parameters_tensor(candidate,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+        if distribution_type == "double":
+            new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(new_X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+            if log_Ibg_mag is not None:
+                new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            else:
+                new_Y_sweep_mag = chi2_nano_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        else:
+            new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_single(new_X_sweep_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+            if log_Ibg_mag is not None: 
+                new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_single(new_X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+            else:
+                new_Y_sweep_mag = chi2_nano_intensity_spheroid_BO_single(new_X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        new_Y_sweep_nuc = new_Y_sweep_nuc.unsqueeze(-1)
+        new_Y_sweep_mag = new_Y_sweep_mag.unsqueeze(-1)
+        new_Y_sweep = new_Y_sweep_nuc*weight + new_Y_sweep_mag*(1-weight)
+        new_log_Y_sweep = torch.log(new_Y_sweep)
+        X_sweep = torch.cat([X_sweep,candidate])
+        Y_sweep_nuc = torch.cat([Y_sweep_nuc,new_Y_sweep_nuc])
+        Y_sweep_mag = torch.cat([Y_sweep_mag,new_Y_sweep_mag])
+        Y_sweep = torch.cat([Y_sweep,new_Y_sweep])
+        log_Y_sweep = torch.cat([log_Y_sweep,new_log_Y_sweep])
+        print(f"Iteration {iteration}, Weight {weight}: best sweep target = {Y_sweep.min().item():.4f}, new candidate = {candidate}")
 
-    condition_jointfit = (jointfit_Y >= 1.6) & (jointfit_Y <= 4.0)
-    count = torch.sum(condition_jointfit).item()
-    if count >= 5:
-        #indices = torch.nonzero(condition)
-        #print(f"Acceptable fit: chi2_red = {Y.min().item():.3f}")
-        break
-
-best_idx_jointfit = torch.argmin(jointfit_Y)
-print("Best theta:", jointfit_X[best_idx_jointfit])
-print("Best combined chi2:", jointfit_Y[best_idx_jointfit])
-if torch.any(condition_jointfit).item():
-    condition_jointfit = condition_jointfit.squeeze(1)
-    #indices_jointfit = torch.nonzero(condition_jointfit)
-    startpoints_jointfit = jointfit_X[condition_jointfit]
-    if count != 1:
-        BO_candidates_jointfit = startpoints_jointfit.detach().cpu().numpy()
+    best_idx_current_BO = torch.argmin(Y_sweep)
+    print(f"Weight {weight}: best theta={X_sweep[best_idx_current_BO]}, best weighted chi2={Y_sweep[best_idx_current_BO]}")
+    current_BO_result = [X_sweep[best_idx_current_BO].detach().cpu().numpy()]
+    #rerun local optimizer
+    result_joint_weighted_finalfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_BO_result)
+    #output,update for next lambda
+    print("Current weight:", weight, "Best theta:", result_joint_weighted_finalfit.x)
+    list_pareto_candidates.append(result_joint_weighted_finalfit.x)
+    result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    if distribution_type == "double":
+        chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None:
+            chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        else:
+            chi2_joint_weighted_finalfit_mag = chi2_nano_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
     else:
-        BO_candidates_jointfit = [jointfit_X[best_idx_jointfit].detach().cpu().numpy()]
+        chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_single(result_joint_weighted_finalfit_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None:
+            chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_single(result_joint_weighted_finalfit_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        else:
+            chi2_joint_weighted_finalfit_mag = chi2_nano_intensity_spheroid_single(result_joint_weighted_finalfit_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    list_pareto_chi2_red_nuc.append(chi2_joint_weighted_finalfit_nuc)
+    list_pareto_chi2_red_mag.append(chi2_joint_weighted_finalfit_mag)
+    current_theta = [np.array(result_joint_weighted_finalfit.x)]
+    
+#Do a reverse sweep as well
+current_theta = [assembled_theta_nucside]
+for weight in list_lambda:
+    ### first do LM to approach solution, start sweep from lambda = 1 (nuclear scattering)
+    if distribution_type == "double":
+        residual_nuc_sweep = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
+        residual_mag_sweep = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
+    else:
+        residual_nuc_sweep = make_residuals_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
+        residual_mag_sweep = make_residuals_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
+    joint_residual_sweep = make_weighted_joint_residuals(residual_mag_sweep,residual_nuc_sweep,weight,dof_mag,dof)#inversing order of residual input = reverse sweep
+    joint_residual_sweep_nostop = make_weighted_joint_residuals(residual_mag_sweep,residual_nuc_sweep,weight,dof_mag,dof,stop=False)
+    result_joint_weighted_firstfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_theta)
+    print("weight:",weight, "First approximation:", result_joint_weighted_firstfit.x)
+    ### do a fine BO using this starting point
+    BO_startpoint_nuc, BO_startpoint_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_firstfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    bounds_BO_sweep = construct_joint_bounds(BO_startpoint_nuc,BO_startpoint_mag,joint_searchwidth_fine,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
+    X_sweep = bounds_BO_sweep[0]+(bounds_BO_sweep[1]-bounds_BO_sweep[0])*torch.rand(n_init_fine,bounds_BO_sweep.shape[1])
+    X_sweep_nuc, X_sweep_mag = separate_nuc_mag_parameters_tensor(X_sweep,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    if distribution_type == "double":
+        Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None:
+            Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        else:
+            Y_sweep_mag = chi2_nano_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+    else:
+        Y_sweep_nuc = chi2_final_intensity_spheroid_BO_single(X_sweep_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None: 
+            Y_sweep_mag = chi2_final_intensity_spheroid_BO_single(X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        else:
+            Y_sweep_mag = chi2_nano_intensity_spheroid_BO_single(X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    
+    Y_sweep_nuc = Y_sweep_nuc.unsqueeze(-1)
+    Y_sweep_mag = Y_sweep_mag.unsqueeze(-1)
+    Y_sweep = Y_sweep_nuc*(1-weight) + Y_sweep_mag*weight
+    log_Y_sweep = torch.log(Y_sweep)
+    for iteration in range(max_iteration_BO_Pareto):
+        model_gp = build_model_nonoise(X_sweep,log_Y_sweep,beta)
+        best_f = log_Y_sweep.min().item()
+        acq = LogExpectedImprovement(model_gp,best_f,maximize=False)
+        candidate,_ = optimize_acqf(
+        acq_function=acq,
+        bounds = bounds_BO_sweep,
+        q = 1,
+        num_restarts=10,
+        raw_samples=256,
+    )
+        new_X_sweep_nuc, new_X_sweep_mag = separate_nuc_mag_parameters_tensor(candidate,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+        if distribution_type == "double":
+            new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(new_X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+            if log_Ibg_mag is not None:
+                new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+            else:
+                new_Y_sweep_mag = chi2_nano_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        else:
+            new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_single(new_X_sweep_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+            if log_Ibg_mag is not None: 
+                new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_single(new_X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+            else:
+                new_Y_sweep_mag = chi2_nano_intensity_spheroid_BO_single(new_X_sweep_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        new_Y_sweep_nuc = new_Y_sweep_nuc.unsqueeze(-1)
+        new_Y_sweep_mag = new_Y_sweep_mag.unsqueeze(-1)
+        new_Y_sweep = new_Y_sweep_nuc*(1-weight) + new_Y_sweep_mag*weight
+        new_log_Y_sweep = torch.log(new_Y_sweep)
+        X_sweep = torch.cat([X_sweep,candidate])
+        Y_sweep_nuc = torch.cat([Y_sweep_nuc,new_Y_sweep_nuc])
+        Y_sweep_mag = torch.cat([Y_sweep_mag,new_Y_sweep_mag])
+        Y_sweep = torch.cat([Y_sweep,new_Y_sweep])
+        log_Y_sweep = torch.cat([log_Y_sweep,new_log_Y_sweep])
+        print(f"Iteration {iteration}, Weight {weight}: best sweep target = {Y_sweep.min().item():.4f}, new candidate = {candidate}")
+
+    best_idx_current_BO = torch.argmin(Y_sweep)
+    print(f"Weight {weight}: best theta={X_sweep[best_idx_current_BO]}, best weighted chi2={Y_sweep[best_idx_current_BO]}")
+    current_BO_result = [X_sweep[best_idx_current_BO].detach().cpu().numpy()]
+    #rerun local optimizer
+    result_joint_weighted_finalfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_BO_result)
+    #output,update for next lambda
+    print("Current weight:", weight, "Best theta:", result_joint_weighted_finalfit.x)
+    list_pareto_candidates.append(result_joint_weighted_finalfit.x)
+    result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+    if distribution_type == "double":
+        chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None:
+            chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+        else:
+            chi2_joint_weighted_finalfit_mag = chi2_nano_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+    else:
+        chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_single(result_joint_weighted_finalfit_nuc,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        if log_Ibg_mag is not None:
+            chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_single(result_joint_weighted_finalfit_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+        else:
+            chi2_joint_weighted_finalfit_mag = chi2_nano_intensity_spheroid_single(result_joint_weighted_finalfit_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    list_pareto_chi2_red_nuc.append(chi2_joint_weighted_finalfit_nuc)
+    list_pareto_chi2_red_mag.append(chi2_joint_weighted_finalfit_mag)
+    current_theta = [np.array(result_joint_weighted_finalfit.x)]
+###  Analyze sweep result  ###
+#first discard less ideal points
+keep = [True]*len(list_pareto_candidates)
+for i in range(len(list_pareto_candidates)):
+    for j in range(len(list_pareto_candidates)):
+        if i == j:
+            continue
+        if (list_pareto_chi2_red_nuc[j] <= list_pareto_chi2_red_nuc[i] and list_pareto_chi2_red_mag[j] <= list_pareto_chi2_red_mag[i]) and (list_pareto_chi2_red_nuc[j] < list_pareto_chi2_red_nuc[i] or list_pareto_chi2_red_mag[j] < list_pareto_chi2_red_mag[i]):
+            keep[i] = False
+            break
+list_pareto_front = [list_pareto_candidates[i] for i in range(len(list_pareto_candidates)) if keep[i]]
+list_pareto_front_chi2_red_nuc = [list_pareto_chi2_red_nuc[i] for i in range(len(list_pareto_candidates)) if keep[i]]
+list_pareto_front_chi2_red_mag = [list_pareto_chi2_red_mag[i] for i in range(len(list_pareto_candidates)) if keep[i]]
+print("pareto set:", list_pareto_front)
+print("chi2 red nuc values:", list_pareto_front_chi2_red_nuc)
+print("chi2 red mag values:", list_pareto_front_chi2_red_mag)
+#then find pareto best solution
+
+points = sorted(zip(list_pareto_front_chi2_red_nuc,list_pareto_front,list_pareto_front_chi2_red_mag),key = lambda x: x[0])
+list_pareto_front_chi2_red_nuc_sorted = [p[0] for p in points]
+list_pareto_front_sorted = [p[1] for p in points]
+list_pareto_front_chi2_red_mag_sorted = [p[2] for p in points]
+if len(list_pareto_front_chi2_red_nuc_sorted) <= 3:
+    print("Not enough pareto solutions. Returning all parameter sets.") 
 else:
-    BO_candidates_jointfit = [jointfit_X[best_idx_jointfit].detach().cpu().numpy()]
-    #BO_candidates_jointfit.reshape(1,bounds_final.shape[1])
+    x1, y1 = list_pareto_front_chi2_red_nuc_sorted[0],  list_pareto_front_chi2_red_mag_sorted[0]
+    x2, y2 = list_pareto_front_chi2_red_nuc_sorted[-1], list_pareto_front_chi2_red_mag_sorted[-1]
+    denom = math.hypot(x2-x1,y2-y1)
+    if denom == 0:
+        print("Points overlap. Check data")
+    else:
+        max_dist = -1.0
+        best_idx = -1
+        for i in range(len(list_pareto_front_chi2_red_nuc_sorted)):
+            x0, y0 = list_pareto_front_chi2_red_nuc_sorted[i], list_pareto_front_chi2_red_mag_sorted[i]
+            dist = abs((y2 - y1) * x0 - (x2 - x1) * y0 + x2 * y1 - y2 * x1) / denom
+            if dist > max_dist:
+                max_dist = dist
+                best_idx = i
 
-
-if distribution_type == "double":
-    residual_nuc = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
-    residual_mag = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
-    joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
-    result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
-else:
-    residual_nuc = make_residuals_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
-    residual_mag = make_residuals_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
-    joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
-    result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
-
-J_jointfit_1 = result_jointfit_1.jac #jacobian
-H_approx_jointfit_1 = J_jointfit_1.T @ J_jointfit_1 #hessian approximation
-cov_jointfit_1 = np.linalg.inv(H_approx_jointfit_1) #covariance matrix
-uncertainties_jointfit_1 = np.sqrt(np.diag(cov_jointfit_1)) #fit uncertainties
-
-print(f"Best result: Parameters = {result_jointfit_1.x}, chi2_red = {result_jointfit_1.cost*2/dof:.4f}")
-
-#best_res = [-6.07625239,-7.1911287,6.40700473,2.6865214,0.18886009,4.37529018]
-"""
+        print("Best Pareto Solution:", list_pareto_front_sorted[best_idx])
+        print("Best chi2_red_nuc:", list_pareto_front_chi2_red_nuc_sorted[best_idx])
+        print("Best chi2_red_mag:", list_pareto_front_chi2_red_mag_sorted[best_idx])
