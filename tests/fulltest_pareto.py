@@ -226,38 +226,6 @@ elif distribution_type == "double":
             num_parameters_2 = 4
     num_parameters = num_parameters_1+num_parameters_2
 
-
-#model_Q = np.linspace(0.01,3,100)
-#model_I = [(final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,q,Rm_1,C,sigma=sigma_rm_1)+nano_intensity_spheroid(combinedfactor_2,distribution_lognormal,formfactor_sphere,volume_sphere,q,Rm_2,sigma=sigma_rm_2)) for q in model_Q]
-#model_I = [final_intensity_spheroid(I_porod,combinedfactor_1,distribution_lognormal,formfactor_sphere,volume_sphere,Ibg,q,Rm_1,C,sigma=sigma_rm_1) for q in model_Q]
-"""
-###
-#plot initial case
-fig = go.Figure()
-
-fig.add_trace(go.Scatter(
-    x = test_Q,
-    y = np.log(test_I),
-    mode = "markers",
-    name = "Experimental",
-    marker = dict(size=10)
-))
-fig.add_trace(go.Scatter(
-    x=model_Q,
-    y=np.log(model_I),
-    mode="lines",
-    name = "Model"
-))
-fig.update_layout(
-    title = "example plot",
-    xaxis_title = "Q(nm-1)",
-    yaxis_title = "log(I(Q))(cm-1)",
-    template = "plotly_white"
-)
-
-fig.show()
-###
-"""
 ### BO iteration ###
 
 #initialization
@@ -493,7 +461,7 @@ else:
     dof_mag = dof + 2
 #initial guess values
 n_init = 100
-"""
+
 t0 = time.time()
 X = bounds[0] + (bounds[1] - bounds[0]) * torch.rand(n_init, bounds.shape[1])
 X_mag = bounds_mag[0] + (bounds_mag[1]-bounds_mag[0])*torch.rand(n_init, bounds_mag.shape[1])
@@ -722,9 +690,9 @@ uncertainties_mag = np.sqrt(np.diag(cov_mag)) #fit uncertainties
 ### Joint fit ###
 jointstart = np.array(result.x)
 jointstart_mag = np.array(result_mag.x)
-"""
-jointstart = np.array([-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942])
-jointstart_mag = np.array([4.37764956,2.70738054,0.18221415])
+
+#jointstart = np.array([-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942])
+#jointstart_mag = np.array([4.37764956,2.70738054,0.18221415])
 ### resolve nuc and mag fitting with fixed params
 n_init_fine = 50
 fixed_args_nuc_complement = copy.deepcopy(fixed_kwargs)
@@ -777,7 +745,7 @@ for s,v in zip(deleted_nuc_params,deleted_nuc_values):
 #print("bounds_mag_filtered:", bounds_mag_filtered)
 #do nuclear optimization starting from the fixed values
 
-"""
+
 X_filtered_nuc = bounds_nuc_filtered[0]+(bounds_nuc_filtered[1]-bounds_nuc_filtered[0])*torch.rand(n_init_fine,bounds_nuc_filtered.shape[1])
 X_filtered_mag = bounds_mag_filtered[0]+(bounds_mag_filtered[1]-bounds_mag_filtered[0])*torch.rand(n_init_fine,bounds_mag_filtered.shape[1])
 if distribution_type == "double":
@@ -867,14 +835,26 @@ print(f"Complement result nuc: Parameters = {filtered_res_nuc.x}, chi2_red = {fi
 filtered_res_nuc_np = np.array(filtered_res_nuc.x)
 assembled_theta_magside = assemble_theta(jointfit_params,nuc_params_filtered,filtered_res_nuc_np,mag_params_filtered,jointstart_mag_filtered,fixed_args_nuc_complement)
 print("Lamda = 0 (only magnetic influence) fit result:", assembled_theta_magside)
-"""
-assembled_theta_magside = [-6.06404703,-7.18891623,6.41047672,2.70738054,0.18221415,4.37764956]
-assembled_theta_magside_chi2_nuc = 1.2798
-assembled_theta_magside_chi2_mag = 1.3487788062955082
+nuc_params_lambda0, mag_params_lambda0 = separate_nuc_mag_parameters(assembled_theta_magside,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+if distribution_type == "double":
+    assembled_theta_magside_chi2_nuc = chi2_final_intensity_spheroid_double(nuc_params_lambda0,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+    if log_Ibg_mag is not None:
+        assembled_theta_magside_chi2_mag = chi2_final_intensity_spheroid_double(mag_params_lambda0,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+    else:
+        assembled_theta_magside_chi2_mag = chi2_nano_intensity_spheroid_double(mag_params_lambda0,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+else:
+    assembled_theta_magside_chi2_nuc = chi2_final_intensity_spheroid_single(nuc_params_lambda0,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+    if log_Ibg_mag is not None:
+        assembled_theta_magside_chi2_mag = chi2_final_intensity_spheroid_single(mag_params_lambda0,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    else:
+        assembled_theta_magside_chi2_mag = chi2_nano_intensity_spheroid_single(mag_params_lambda0,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+#assembled_theta_magside = np.array([-6.06404703,-7.18891623,6.41047672,2.70738054,0.18221415,4.37764956])
+#assembled_theta_magside_chi2_nuc = 1.2798
+#assembled_theta_magside_chi2_mag = 1.3487788062955082
 
 ### Now do the same for mag scattering
 
-"""
+
 for iteration in range(max_iteration_BO_Pareto):
     model_gp = build_model_nonoise(X_filtered_mag,log_Y_filtered_mag,beta)
     best_f = log_Y_filtered_mag.min().item()
@@ -932,10 +912,22 @@ print(f"Complement result mag: Parameters = {filtered_res_mag.x}, chi2_red = {fi
 filtered_res_mag_np = np.array(filtered_res_mag.x)
 assembled_theta_nucside = assemble_theta(jointfit_params,mag_params_filtered,filtered_res_mag_np,nuc_params_filtered,jointstart_nuc_filtered,fixed_args_mag_complement)
 print("Lamda = 1 (only nuclear influence) fit result:", assembled_theta_nucside)
-"""
-assembled_theta_nucside = [-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942,4.2834666]
-assembled_theta_nucside_chi2_mag = 3.930570346645365
-assembled_theta_nucside_chi2_nuc = 1.140017241955704
+nuc_params_lambda1, mag_params_lambda1 = separate_nuc_mag_parameters(assembled_theta_nucside,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
+if distribution_type == "double":
+    assembled_theta_nucside_chi2_nuc = chi2_final_intensity_spheroid_double(nuc_params_lambda1,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+    if log_Ibg_mag is not None:
+        assembled_theta_nucside_chi2_mag = chi2_final_intensity_spheroid_double(mag_params_lambda1,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+    else:
+        assembled_theta_nucside_chi2_mag = chi2_nano_intensity_spheroid_double(mag_params_lambda1,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
+else:
+    assembled_theta_nucside_chi2_nuc = chi2_final_intensity_spheroid_single(nuc_params_lambda1,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+    if log_Ibg_mag is not None:
+        assembled_theta_nucside_chi2_mag = chi2_final_intensity_spheroid_single(mag_params_lambda1,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+    else:
+        assembled_theta_nucside_chi2_mag = chi2_nano_intensity_spheroid_single(mag_params_lambda1,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
+#assembled_theta_nucside = np.array([-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942,4.2834666])
+#assembled_theta_nucside_chi2_mag = 3.930570346645365
+#assembled_theta_nucside_chi2_nuc = 1.140017241955704
 
 
 ###### Begin Pareto Front Sweep ######
@@ -947,13 +939,16 @@ current_theta = [assembled_theta_magside]
 #construct lambda checklist
 list_lambda = np.concatenate((np.linspace(0.1,0.3,2,endpoint=False),np.linspace(0.3,0.7,8,endpoint=False),np.linspace(0.7,1.0,3,endpoint=False)))
 print(list_lambda)
-
+list_weights = []
 list_pareto_candidates = []
 list_pareto_chi2_red_nuc = []
 list_pareto_chi2_red_mag = []
+list_weights.append(0)
 list_pareto_candidates.append(assembled_theta_magside)
 list_pareto_chi2_red_nuc.append(assembled_theta_magside_chi2_nuc)
 list_pareto_chi2_red_mag.append(assembled_theta_magside_chi2_mag)
+
+list_weights.append(1)
 list_pareto_candidates.append(assembled_theta_nucside)
 list_pareto_chi2_red_nuc.append(assembled_theta_nucside_chi2_nuc)
 list_pareto_chi2_red_mag.append(assembled_theta_nucside_chi2_mag)
@@ -1035,6 +1030,7 @@ for weight in list_lambda:
     result_joint_weighted_finalfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_BO_result)
     #output,update for next lambda
     print("Current weight:", weight, "Best theta:", result_joint_weighted_finalfit.x)
+    list_weights.append(weight)
     list_pareto_candidates.append(result_joint_weighted_finalfit.x)
     result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
     if distribution_type == "double":
@@ -1131,6 +1127,7 @@ for weight in list_lambda:
     result_joint_weighted_finalfit = LM_joint_optimize(joint_residual_sweep,joint_residual_sweep_nostop,startpoints=current_BO_result)
     #output,update for next lambda
     print("Current weight:", weight, "Best theta:", result_joint_weighted_finalfit.x)
+    list_weights.append(1-weight)
     list_pareto_candidates.append(result_joint_weighted_finalfit.x)
     result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
     if distribution_type == "double":
@@ -1166,10 +1163,11 @@ print("chi2 red nuc values:", list_pareto_front_chi2_red_nuc)
 print("chi2 red mag values:", list_pareto_front_chi2_red_mag)
 #then find pareto best solution
 
-points = sorted(zip(list_pareto_front_chi2_red_nuc,list_pareto_front,list_pareto_front_chi2_red_mag),key = lambda x: x[0])
+points = sorted(zip(list_pareto_front_chi2_red_nuc,list_pareto_front,list_pareto_front_chi2_red_mag,list_weights),key = lambda x: x[0])
 list_pareto_front_chi2_red_nuc_sorted = [p[0] for p in points]
 list_pareto_front_sorted = [p[1] for p in points]
 list_pareto_front_chi2_red_mag_sorted = [p[2] for p in points]
+list_weights_sorted = [p[3] for p in points]
 if len(list_pareto_front_chi2_red_nuc_sorted) <= 3:
     print("Not enough pareto solutions. Returning all parameter sets.") 
 else:

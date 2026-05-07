@@ -16,7 +16,6 @@ from core.utils.helper_functions import objective,chi2_red_variance,log_chi2_red
 from core.optimizer.Levenberg_Marquardt import LM_optimize,LM_joint_optimize
 
 
-
 from scipy.integrate import quad
 import numpy as np
 import pandas as pd
