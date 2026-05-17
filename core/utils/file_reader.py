@@ -1,8 +1,12 @@
 import pandas as pd
 import numpy as np
+
+"""
+pd.read_csv also works with file-like objects, no need to change code for streamlit
+"""
 def file_reader_1d(path): #reads 1d scattering signal file and returns numpy array
     df = pd.read_csv(path, sep=r'\s+', header=0)
-    filtered_df = df[df.iloc[:,1]>0] #filter negative values
+    filtered_df = df[df.iloc[:,1]>0 & (df.iloc[:,1]>df.iloc[:,2])] #filter negative values
     filtered_arr = filtered_df.to_numpy()
     Q = filtered_arr[:,0]
     I = filtered_arr[:,1]
