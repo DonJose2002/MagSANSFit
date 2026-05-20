@@ -81,19 +81,22 @@ def update_variable_activity(dataset):
 
     if distribution_1 != "mono":
         variables["Sigma_1"].active = True
+
     if model_1 == "ellipsoid":
         variables["kellipsoid_1"].active = True
-    if model_1 == "core-shell":
+    elif model_1 == "core-shell":
         variables["kshell_1"].active = True
         variables["mu_1"].active = True
+        
     if distribution_type == "Double": 
         variables["A_2"].active = True
         variables["Rm_2"].active = True       
         if distribution_2 != "mono":
             variables["Sigma_2"].active = True
+
         if model_2 == "ellipsoid":
             variables["kellipsoid_2"].active = True
-        if model_2 == "core-shell":
+        elif model_2 == "core-shell":
             variables["kshell_2"].active = True
             variables["mu_2"].active = True
         

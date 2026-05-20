@@ -78,3 +78,10 @@ def initialize_state():
         st.session_state.active_dataset = (
             "Nuclear Signal"
         )
+
+def initialize_variable_values():
+    for dataset in st.session_state.datasets.values():
+        values = dataset["values"]
+        for variable in dataset["variables"].values():
+            if variable.internal_name not in values:
+                values[variable.internal_name] = variable.get_value()

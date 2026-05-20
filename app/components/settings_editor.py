@@ -30,7 +30,7 @@ def render_settings_editor():
 
         display_df,
 
-        use_container_width=True,
+        width='stretch',
 
         num_rows="dynamic"
     )
