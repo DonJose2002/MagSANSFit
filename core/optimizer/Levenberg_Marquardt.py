@@ -35,6 +35,15 @@ def LM_optimize(target_function,x_array,x_name,experiment,uncertainty,params,kwa
             best_result = result
     return best_result
 
+def LM_optimize_nostop(target_function,x_array,x_name,experiment,uncertainty,params,kwargs,startpoints):
+    residual_nostop = make_residual_nostop(target_function,x_array,x_name,experiment,uncertainty,params,kwargs)
+    best_result = None
+    for x0 in startpoints:
+        result = least_squares(residual_nostop,x0=x0,method='lm',ftol=1e-12, xtol=1e-12, gtol=1e-12)
+        if best_result is None or result.cost < best_result.cost:
+            best_result = result
+    return best_result
+
 def LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints):
     best_result = None
     for x0 in startpoints:

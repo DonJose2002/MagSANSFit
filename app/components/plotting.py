@@ -1,7 +1,9 @@
 import streamlit as st
 import plotly.graph_objects as go
 import numpy as np
+import copy
 
+from app.utilities.cache_generator import get_model_config
 from problems.coreshell import formfactor_coreshell
 from problems.distributions import distribution_normal,distribution_lognormal
 from problems.ellipsoid import volume_ellipsoid,formfactor_ellipsoid
@@ -15,9 +17,9 @@ def create_plot(treated_input):
     #Gather info from session_state
     ###--------------------------------------
     dataset_nuc = st.session_state.datasets["Nuclear Signal"]
-    dataset_mag = st.session_state.datasets["Magnetic Signal"]
+    dataset = st.session_state.datasets["Magnetic Signal"]
     values_nuc = dataset_nuc["values"]
-    values_mag = dataset_mag["values"]
+    values_mag = dataset["values"]
     dataset_name = st.session_state.active_dataset
     distribution_type = st.session_state.global_model_state["distribution_type"]
     distribution_1 = st.session_state.global_model_state["distribution_1"]
@@ -180,7 +182,7 @@ def create_plot(treated_input):
         #print(distribution_1)
         #print(distribution_func_1)
         chi2_nuc = chi2_final_intensity_spheroid_single(theta_nuc,distribution_func_1,formfactor_1,volume_1,test_Q,test_Inuc,test_sigmaInuc)
-
+    #print(theta_nuc)
     fig = go.Figure()
     fig.add_trace(go.Scatter(
         x = test_Q,
@@ -215,17 +217,6 @@ def create_plot(treated_input):
                                             q,Rm_2_mag,sigma=sigma_rm_2_mag,k=k_2_mag,mu=mu_2_mag)) for q in model_Q]
                 chi2_mag = chi2_nano_intensity_spheroid_double(theta_mag,distribution_func_1,distribution_func_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
         elif distribution_type == "Single":
-            #print(combinedfactor_1_mag)
-            #print(distribution_func_1)
-            #print(formfactor_1)
-            #print(volume_1)
-            #
-            #print(Rm_1_mag)
-            #print(sigma_rm_1_mag)
-            #print(k_1_mag)
-            #print(mu_1_mag)
-            #print(theta_mag)
-            #print(len(theta_mag))
             if log_Ibg_mag is not None:
                 model_Imag = [final_intensity_spheroid(
                     I_porod,combinedfactor_1_mag,distribution_func_1,formfactor_1,volume_1,
@@ -238,7 +229,6 @@ def create_plot(treated_input):
                     combinedfactor_1_mag,distribution_func_1,formfactor_1,volume_1,
                     q,Rm_1_mag,sigma=sigma_rm_1_mag,k=k_1_mag,mu=mu_1_mag
                     ) for q in model_Q]
-                print()
                 chi2_mag = chi2_nano_intensity_spheroid_single(theta_mag,distribution_func_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
         fig.add_trace(go.Scatter(
             x = test_Q,
@@ -263,5 +253,90 @@ def create_plot(treated_input):
 )
     
     return fig,chi2_nuc,chi2_mag
+"""
+single_plot: returns plotly figure object based on read file, model_state and variable_values.
+uses cache_resource to avoid recalculation when switching nuc/mag dataset
+"""
+@st.cache_resource
+def single_plot(treated_input, global_model_state, active_dataset, variable_values, magnetic_scattering_background): #magnetic_scattering_background is input to ensure proper response during toggling
+    ### gather st info ###
+    analysis_mode =  global_model_state["analysis_mode"]
+    distribution_type = global_model_state["distribution_type"]
+    model_state = get_model_config(global_model_state)
+    ### input decode ###
+    if distribution_type == "Double":
+        distribution_func_1,distribution_func_2,formfactor_1,formfactor_2,volume_1,volume_2 = model_state
+        Ibg,C,combinedfactor_1,Rm_1,sigma_rm_1,k_1,mu_1,combinedfactor_2,Rm_2,sigma_rm_2,k_2,mu_2,theta = variable_values
+    elif distribution_type == "Single":
+        distribution_func_1,formfactor_1,volume_1 = model_state
+        Ibg,C,combinedfactor_1,Rm_1,sigma_rm_1,k_1,mu_1,theta = variable_values
+        
+    theta_internal = theta.copy()
+    if active_dataset == "Magnetic Signal" and magnetic_scattering_background == "Off":
+        Ibg = None
+        C = None
+        theta_internal = theta[2:]
+    if analysis_mode == "Distribution Fitting":
+        test_Q, test_Inuc, test_sigmaInuc, test_sigmaQ = treated_input
+    elif analysis_mode == "Nuclear-Magnetic Joint Analysis":
+        test_Q, test_Inuc, test_sigmaInuc, test_sigmaQ, test_Imag, test_sigmaImag = treated_input
 
-          
+    if active_dataset == "Nuclear Signal":
+        test_I = test_Inuc
+        test_sigmaI = test_sigmaInuc
+    elif active_dataset == "Magnetic Signal":
+        test_I = test_Imag
+        test_sigmaI = test_sigmaImag
+    ### calculate curve and generate fig object ###
+    model_Q = np.linspace(max(np.min(test_Q)-0.1,0.01),np.max(test_Q)+0.1,100)
+    if distribution_type == "Double":
+        if Ibg is not None:
+            model_I = [(final_intensity_spheroid(
+                    I_porod,combinedfactor_1,distribution_func_1,formfactor_1,volume_1,
+                    Ibg,q,Rm_1,C,sigma=sigma_rm_1,k=k_1,mu=mu_1
+                    )+nano_intensity_spheroid(combinedfactor_2,distribution_func_2,formfactor_2,volume_2,
+                                            q,Rm_2,sigma=sigma_rm_2,k=k_2,mu=mu_2)) for q in model_Q]
+            chi2 = chi2_final_intensity_spheroid_double(theta_internal,distribution_func_1,distribution_func_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
+        else:
+            model_I = [(nano_intensity_spheroid(
+                    combinedfactor_1,distribution_func_1,formfactor_1,volume_1,
+                    q,Rm_1,sigma=sigma_rm_1,k=k_1,mu=mu_1
+                    )+nano_intensity_spheroid(combinedfactor_2,distribution_func_2,formfactor_2,volume_2,
+                                            q,Rm_2,sigma=sigma_rm_2,k=k_2,mu=mu_2)) for q in model_Q]
+            chi2 = chi2_nano_intensity_spheroid_double(theta_internal,distribution_func_1,distribution_func_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)  
+    elif distribution_type == "Single":
+        if Ibg is not None:
+            model_I = [final_intensity_spheroid(
+                    I_porod,combinedfactor_1,distribution_func_1,formfactor_1,volume_1,
+                    Ibg,q,Rm_1,C,sigma=sigma_rm_1,k=k_1,mu=mu_1
+                    ) for q in model_Q]
+            #print(theta_internal)
+            chi2 = chi2_final_intensity_spheroid_single(theta_internal,distribution_func_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+        else:
+                
+            model_I = [nano_intensity_spheroid(
+                    combinedfactor_1,distribution_func_1,formfactor_1,volume_1,
+                    q,Rm_1,sigma=sigma_rm_1,k=k_1,mu=mu_1
+                    ) for q in model_Q]
+            chi2 = chi2_nano_intensity_spheroid_single(theta_internal,distribution_func_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
+    fig = go.Figure()
+    fig.add_trace(go.Scatter(
+            x = test_Q,
+            y = np.log(test_I),
+            mode = "markers",
+            name = "Experimental Scattering",
+            marker = dict(size=10)
+        ))
+    fig.add_trace(go.Scatter(
+            x=model_Q,
+            y=np.log(model_I),
+            mode="lines",
+            name = "Model Scattering"
+        ))
+
+    fig.update_layout(
+    xaxis_title = "Q(nm-1)",
+    yaxis_title = "log(I(Q))(cm-1)",
+    template = "plotly_white"
+)
+    return fig,chi2

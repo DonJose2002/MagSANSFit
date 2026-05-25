@@ -66,7 +66,7 @@ compute_sigma_z: determines relative variance of experimental measurements
 def compute_sigma_z(experiment, uncertainty):
     return uncertainty/experiment
 """
-construct_joint_bounds: returns a tensor for BO optimization based on 
+construct_joint_bounds: returns a tensor for BO optimization based on startpoint and searchwidth settings.
 """
 def construct_joint_bounds(jointstart,jointstart_mag,joint_searchwidth,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2):
     bounds_jointfit = [[jointstart[0]-joint_searchwidth[0],jointstart[0]+joint_searchwidth[0]],
@@ -96,7 +96,7 @@ def construct_joint_bounds(jointstart,jointstart_mag,joint_searchwidth,pos_array
         decrement = 2
         bounds_mag_joint = [[jointstart_mag[0]-joint_searchwidth[2],jointstart_mag[0]+joint_searchwidth[2]]]
 
-    if distribution_type == "double":
+    if distribution_type == "Double":
         bounds_mag_joint.append([jointstart_mag[pos_array_A_2-decrement]-joint_searchwidth[pos_array_A_2],jointstart_mag[pos_array_A_2-decrement]+joint_searchwidth[pos_array_A_2]])
         if model_1 == "core-shell":
             bounds_mag_joint.append([jointstart_mag[pos_array_mu_1-decrement]-joint_searchwidth[pos_array_mu_1],jointstart_mag[pos_array_mu_1-decrement]+joint_searchwidth[pos_array_mu_1]])
@@ -143,7 +143,7 @@ def construct_joint_parameters(nuc_parameters,mag_parameters,pos_array_A_2,pos_a
         decrement = 2
         theta_mag = [mag_parameters[0]]
 
-    if distribution_type == "double":
+    if distribution_type == "Double":
         theta_mag.append(mag_parameters[pos_array_A_2-decrement])
         if model_1 == "core-shell":
             theta_mag.append(mag_parameters[pos_array_mu_1-decrement])

@@ -46,10 +46,10 @@ target_chi2 = 1
 width_chi2 = 0.3
 
 ###input parameters
-distribution_type = "log normal" #mono,normal,log normal,double
-if distribution_type == "double":
-    distribution_type_1 = "log normal" #mono,normal,log normal
-    distribution_type_2 = "log normal" #mono,normal,log normal
+distribution_type = "log_normal" #mono,normal,log normal,double
+if distribution_type == "Double":
+    distribution_type_1 = "log_normal" #mono,normal,log normal
+    distribution_type_2 = "log_normal" #mono,normal,log normal
     distribution_weight = 0.5 #weight of the first distribution function
 
 model_1 = "sphere" #sphere, ellipsoid, core-shell
@@ -166,7 +166,7 @@ print(test_sigmaImag.shape)
 ###computation of porod and background scattering signal
 num_parameters = 0
 #case by case initialization
-if (distribution_type == "normal") or (distribution_type == "log normal") :
+if (distribution_type == "normal") or (distribution_type == "log_normal") :
     if model_1 == "sphere":
         num_parameters_1 = 5
     elif model_1 == "ellipsoid":
@@ -182,8 +182,8 @@ elif distribution_type == "mono":
     elif model_1 == "core-shell":
         num_parameters_1 = 6
     num_parameters = num_parameters_1
-elif distribution_type == "double":
-    if (distribution_type_1 == "normal") or (distribution_type_1 == "log normal") :
+elif distribution_type == "Double":
+    if (distribution_type_1 == "normal") or (distribution_type_1 == "log_normal") :
         if model_1 == "sphere":
             num_parameters_1 = 5
         elif model_1 == "ellipsoid":
@@ -197,7 +197,7 @@ elif distribution_type == "double":
             num_parameters_1 = 5
         elif model_1 == "core-shell":
             num_parameters_1 = 6
-    if (distribution_type_2 == "normal") or (distribution_type_2 == "log normal") :
+    if (distribution_type_2 == "normal") or (distribution_type_2 == "log_normal") :
         if model_2 == "sphere":
             num_parameters_2 = 3
         elif model_2 == "ellipsoid":
@@ -282,7 +282,7 @@ fixed_kwargs = {'approx': I_porod}
 # assign distribution function
 distribution_1 = "mono"
 distribution_2 = "mono"
-if distribution_type == "log normal":
+if distribution_type == "log_normal":
     distribution_1 = distribution_lognormal
     bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
     bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -298,8 +298,8 @@ elif distribution_type == "normal":
     common_params.append('sigma')
     bounds_box_1.append(range_sigma)
     joint_searchwidth_1.append(search_width_sigma_jointfit)
-elif distribution_type == "double":
-    if distribution_type_1 == "log normal":
+elif distribution_type == "Double":
+    if distribution_type_1 == "log_normal":
         distribution_1 = distribution_lognormal
         bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
         bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -315,7 +315,7 @@ elif distribution_type == "double":
         common_params.append('sigma')
         bounds_box_1.append(range_sigma)
         joint_searchwidth_1.append(search_width_sigma_jointfit)
-    if distribution_type_2 == "log normal":
+    if distribution_type_2 == "log_normal":
         distribution_2 = distribution_lognormal
         bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_sigma[0],sigma_2-search_width_sigma),min(range_sigma[1],sigma_2+search_width_sigma)]])])
         bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_sigma[0],sigma_2_mag-search_width_sigma),min(range_sigma[1],sigma_2_mag+search_width_sigma)]])])
@@ -333,7 +333,7 @@ elif distribution_type == "double":
         joint_searchwidth_2.append(search_width_sigma_jointfit)
 
 fixed_kwargs['distribution'] = distribution_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
 
 
@@ -397,7 +397,7 @@ elif model_2 == "core-shell":
 fixed_kwargs['distribution'] = distribution_1
 fixed_kwargs['formfactor'] = formfactor_1
 fixed_kwargs['volume'] = volume_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
     fixed_kwargs['formfactor_2'] = formfactor_2
     fixed_kwargs['volume_2'] = volume_2
@@ -411,7 +411,7 @@ else:
     nuc_pos_list = [2]
     mag_pos_list = [0]
 #assign BO bounds
-if distribution_type == "double":
+if distribution_type == "Double":
     bounds = torch.cat([bounds_1,bounds_2])
     bounds_mag = torch.cat([bounds_1_mag,bounds_2_mag])
     bounds = bounds.T

@@ -63,6 +63,17 @@ def initialize_state():
         "model_2":"sphere",
 
     }
+    if "analysis_configs" not in st.session_state:
+        st.session_state.analysis_configs = {
+            "max_iteration_BO": 75,
+            "max_iteration_BO_Pareto": 50,
+            "logspace_tolerance": 0.1,
+            "n_init": 100,
+            "n_init_discrepancy": 100,
+            "n_init_fine": 50,
+            "min_model_discrepancy": 1.0e-4,
+            "max_model_discrepancy": 1.0
+        }
         
     if "datasets" not in st.session_state:
         

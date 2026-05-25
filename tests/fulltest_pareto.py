@@ -49,10 +49,10 @@ target_chi2 = 1
 width_chi2 = 0.3
 
 ###input parameters
-distribution_type = "log normal" #mono,normal,log normal,double
-if distribution_type == "double":
-    distribution_type_1 = "log normal" #mono,normal,log normal
-    distribution_type_2 = "log normal" #mono,normal,log normal
+distribution_type = "log_normal" #mono,normal,log normal,double
+if distribution_type == "Double":
+    distribution_type_1 = "log_normal" #mono,normal,log normal
+    distribution_type_2 = "log_normal" #mono,normal,log normal
     distribution_weight = 0.5 #weight of the first distribution function
 
 model_1 = "sphere" #sphere, ellipsoid, core-shell
@@ -179,7 +179,7 @@ print(test_sigmaImag.shape)
 ###computation of porod and background scattering signal
 num_parameters = 0
 #case by case initialization
-if (distribution_type == "normal") or (distribution_type == "log normal") :
+if (distribution_type == "normal") or (distribution_type == "log_normal") :
     if model_1 == "sphere":
         num_parameters_1 = 5
     elif model_1 == "ellipsoid":
@@ -195,8 +195,8 @@ elif distribution_type == "mono":
     elif model_1 == "core-shell":
         num_parameters_1 = 6
     num_parameters = num_parameters_1
-elif distribution_type == "double":
-    if (distribution_type_1 == "normal") or (distribution_type_1 == "log normal") :
+elif distribution_type == "Double":
+    if (distribution_type_1 == "normal") or (distribution_type_1 == "log_normal") :
         if model_1 == "sphere":
             num_parameters_1 = 5
         elif model_1 == "ellipsoid":
@@ -210,7 +210,7 @@ elif distribution_type == "double":
             num_parameters_1 = 5
         elif model_1 == "core-shell":
             num_parameters_1 = 6
-    if (distribution_type_2 == "normal") or (distribution_type_2 == "log normal") :
+    if (distribution_type_2 == "normal") or (distribution_type_2 == "log_normal") :
         if model_2 == "sphere":
             num_parameters_2 = 3
         elif model_2 == "ellipsoid":
@@ -267,7 +267,7 @@ fixed_kwargs = {'approx': I_porod}
 # assign distribution function
 distribution_1 = "mono"
 distribution_2 = "mono"
-if distribution_type == "log normal":
+if distribution_type == "log_normal":
     distribution_1 = distribution_lognormal
     bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
     bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -285,9 +285,9 @@ elif distribution_type == "normal":
     bounds_box_1.append(range_sigma)
     joint_searchwidth_1.append(search_width_sigma_jointfit)
     joint_searchwidth_1_fine.append(search_width_sigma_jointfit_fine)
-elif distribution_type == "double":
+elif distribution_type == "Double":
     common_params.append('R_2')
-    if distribution_type_1 == "log normal":
+    if distribution_type_1 == "log_normal":
         distribution_1 = distribution_lognormal
         bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
         bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -305,7 +305,7 @@ elif distribution_type == "double":
         bounds_box_1.append(range_sigma)
         joint_searchwidth_1.append(search_width_sigma_jointfit)
         joint_searchwidth_1_fine.append(search_width_sigma_jointfit_fine)
-    if distribution_type_2 == "log normal":
+    if distribution_type_2 == "log_normal":
         distribution_2 = distribution_lognormal
         bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_sigma[0],sigma_2-search_width_sigma),min(range_sigma[1],sigma_2+search_width_sigma)]])])
         bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_sigma[0],sigma_2_mag-search_width_sigma),min(range_sigma[1],sigma_2_mag+search_width_sigma)]])])
@@ -324,7 +324,7 @@ elif distribution_type == "double":
         joint_searchwidth_2.append(search_width_sigma_jointfit)
         joint_searchwidth_2_fine.append(search_width_sigma_jointfit_fine)
 fixed_kwargs['distribution'] = distribution_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
 
 
@@ -394,7 +394,7 @@ elif model_2 == "core-shell":
 fixed_kwargs['distribution'] = distribution_1
 fixed_kwargs['formfactor'] = formfactor_1
 fixed_kwargs['volume'] = volume_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
     fixed_kwargs['formfactor_2'] = formfactor_2
     fixed_kwargs['volume_2'] = volume_2
@@ -408,7 +408,7 @@ else:
     nuc_pos_list = [2]
     mag_pos_list = [0]
 #assign BO bounds
-if distribution_type == "double":
+if distribution_type == "Double":
     bounds = torch.cat([bounds_1,bounds_2])
     bounds_mag = torch.cat([bounds_1_mag,bounds_2_mag])
     bounds = bounds.T
@@ -470,7 +470,7 @@ X_mag = bounds_mag[0] + (bounds_mag[1]-bounds_mag[0])*torch.rand(n_init, bounds_
 #print(bounds.shape)
 #print(X)
 
-if distribution_type == "double":
+if distribution_type == "Double":
     Y = chi2_final_intensity_spheroid_BO_double(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None:
         Y_mag = chi2_final_intensity_spheroid_BO_double(X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -485,7 +485,7 @@ else:
    
 
 
-#if distribution_type == "double":
+#if distribution_type == "Double":
 #    Y,reward_variance = chi2_final_intensity_spheroid_BO_double_with_reward(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
 #else:
 #    Y,reward_variance = chi2_final_intensity_spheroid_BO_single_with_reward(X,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
@@ -536,7 +536,7 @@ for iteration in range(max_iteration_BO):
             )
             t2 = time.time()
             print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
+            if distribution_type == "Double":
                 new_Y = chi2_final_intensity_spheroid_BO_double(candidate,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
             else:
                 new_Y = chi2_final_intensity_spheroid_BO_single(candidate,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
@@ -576,7 +576,7 @@ else:
     BO_candidates = [X[best_idx].detach().cpu().numpy()]
     #BO_candidates.reshape(1,bounds.shape[1])
 print("BO_candidates:", BO_candidates)
-if distribution_type == "double":
+if distribution_type == "Double":
     result = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
 else:
     result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
@@ -615,7 +615,7 @@ for iteration in range(max_iteration_BO):
             )
             t2 = time.time()
             print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
+            if distribution_type == "Double":
                 if log_Ibg_mag is not None:
                     new_Y_mag = chi2_final_intensity_spheroid_BO_double(candidate_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
                 else:
@@ -672,7 +672,7 @@ else:
     params_firstfit_mag.pop(0)
     params_firstfit_mag.pop(0)
     print("params_firstfit_mag:", params_firstfit_mag)
-if distribution_type == "double":
+if distribution_type == "Double":
     result_mag = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params_firstfit_mag,fixed_kwargs,BO_candidates_mag)
 else:
     result_mag = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params_firstfit_mag,fixed_kwargs,BO_candidates_mag)
@@ -688,15 +688,15 @@ uncertainties_mag = np.sqrt(np.diag(cov_mag)) #fit uncertainties
 
 
 ### Joint fit ###
-jointstart = np.array(result.x)
-jointstart_mag = np.array(result_mag.x)
+jointstart = np.array(result.x)#dynamic
+jointstart_mag = np.array(result_mag.x)#dynamic
 
 #jointstart = np.array([-6.82333048,-7.22396437,6.27986562,2.16129074,0.30854942])
 #jointstart_mag = np.array([4.37764956,2.70738054,0.18221415])
 ### resolve nuc and mag fitting with fixed params
 n_init_fine = 50
-fixed_args_nuc_complement = copy.deepcopy(fixed_kwargs)
-fixed_args_mag_complement = copy.deepcopy(fixed_kwargs)
+fixed_args_nuc_complement = copy.deepcopy(fixed_kwargs)#dynamic
+fixed_args_mag_complement = copy.deepcopy(fixed_kwargs)#dynamic
 nuc_params_temp = np.array(params)
 mag_params_temp = np.array(params_mag)
 mask_params_nuc = ~np.isin(nuc_params_temp,common_params)
@@ -707,17 +707,17 @@ nuc_params_filtered = nuc_params_temp[mask_params_nuc].tolist()
 bounds_nuc_filtered = bounds[:,mask_params_nuc_torch]
 mag_params_filtered = mag_params_temp[mask_params_mag].tolist()
 bounds_mag_filtered = bounds_mag[:,mask_params_mag_torch]
-jointstart_nuc_filtered = jointstart[mask_params_nuc]
-jointstart_mag_filtered = jointstart_mag[mask_params_mag]
+jointstart_nuc_filtered = jointstart[mask_params_nuc]#dynamic
+jointstart_mag_filtered = jointstart_mag[mask_params_mag]#dynamic
 
 mask_params_nuc_del = np.isin(nuc_params_temp,common_params)
 mask_params_mag_del = np.isin(mag_params_temp,common_params)
 deleted_nuc_params = nuc_params_temp[mask_params_nuc_del]
 deleted_mag_params = mag_params_temp[mask_params_mag_del]
-deleted_nuc_values = jointstart[mask_params_nuc_del]
-deleted_mag_values = jointstart_mag[mask_params_mag_del]
+deleted_nuc_values = jointstart[mask_params_nuc_del]#dynamic
+deleted_mag_values = jointstart_mag[mask_params_mag_del]#dynamic
 #fill dummy values for dicts
-if distribution_type == "double":
+if distribution_type == "Double":
     for entry in possible_common_params_double:
         fixed_args_nuc_complement[entry] = None
         fixed_args_mag_complement[entry] = None
@@ -728,10 +728,10 @@ else:
 
 
 for s,v in zip(deleted_mag_params,deleted_mag_values):# for nuc fixed fitting, use mag results, and vice versa
-    fixed_args_nuc_complement[s] = v
+    fixed_args_nuc_complement[s] = v#dynamic
 
 for s,v in zip(deleted_nuc_params,deleted_nuc_values):
-    fixed_args_mag_complement[s] = v
+    fixed_args_mag_complement[s] = v#dynamic
 #print("jointfit_params:", jointfit_params)
 #print("bounds tensor:", bounds)
 #print("bounds tensor shape:", bounds.shape)
@@ -748,7 +748,7 @@ for s,v in zip(deleted_nuc_params,deleted_nuc_values):
 
 X_filtered_nuc = bounds_nuc_filtered[0]+(bounds_nuc_filtered[1]-bounds_nuc_filtered[0])*torch.rand(n_init_fine,bounds_nuc_filtered.shape[1])
 X_filtered_mag = bounds_mag_filtered[0]+(bounds_mag_filtered[1]-bounds_mag_filtered[0])*torch.rand(n_init_fine,bounds_mag_filtered.shape[1])
-if distribution_type == "double":
+if distribution_type == "Double":
     Y_filtered_nuc = chi2_final_intensity_spheroid_BO_double_fixed(X_filtered_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,
                                                                    test_I,test_sigmaI,fixed_args_nuc_complement['R'],
                                                                    fixed_args_nuc_complement['R_2'],
@@ -805,7 +805,7 @@ for iteration in range(max_iteration_BO_Pareto):
         num_restarts=10,
         raw_samples=256,
     )
-    if distribution_type == "double":
+    if distribution_type == "Double":
         new_Y_filtered_nuc = chi2_final_intensity_spheroid_BO_double_fixed(candidate,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,
                                                                     test_I,test_sigmaI,fixed_args_nuc_complement['R'],
                                                                     fixed_args_nuc_complement['R_2'],
@@ -826,7 +826,7 @@ for iteration in range(max_iteration_BO_Pareto):
     print(f"Iteration {iteration}: best Y_filtered_nuc = {Y_filtered_nuc.min().item():.4f}, new candidate = {candidate}")
 best_filtered_nuc_idx = torch.argmin(Y_filtered_nuc)
 BO_filtered_nuc_candidate = [X_filtered_nuc[best_filtered_nuc_idx].detach().cpu().numpy()]
-if distribution_type == "double":
+if distribution_type == "Double":
     filtered_res_nuc = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=nuc_params_filtered,kwargs=fixed_args_nuc_complement,startpoints=BO_filtered_nuc_candidate)
 else:
     filtered_res_nuc = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=nuc_params_filtered,kwargs=fixed_args_nuc_complement,startpoints=BO_filtered_nuc_candidate)
@@ -836,7 +836,7 @@ filtered_res_nuc_np = np.array(filtered_res_nuc.x)
 assembled_theta_magside = assemble_theta(jointfit_params,nuc_params_filtered,filtered_res_nuc_np,mag_params_filtered,jointstart_mag_filtered,fixed_args_nuc_complement)
 print("Lamda = 0 (only magnetic influence) fit result:", assembled_theta_magside)
 nuc_params_lambda0, mag_params_lambda0 = separate_nuc_mag_parameters(assembled_theta_magside,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-if distribution_type == "double":
+if distribution_type == "Double":
     assembled_theta_magside_chi2_nuc = chi2_final_intensity_spheroid_double(nuc_params_lambda0,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None:
         assembled_theta_magside_chi2_mag = chi2_final_intensity_spheroid_double(mag_params_lambda0,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -866,7 +866,7 @@ for iteration in range(max_iteration_BO_Pareto):
         num_restarts=10,
         raw_samples=256,
     )
-    if distribution_type == "double":
+    if distribution_type == "Double":
         if log_Ibg_mag is not None:
             new_Y_filtered_mag = chi2_final_intensity_spheroid_BO_double_fixed(candidate,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,
                                                                     test_Imag,test_sigmaImag,fixed_args_mag_complement['R'],
@@ -903,7 +903,7 @@ for iteration in range(max_iteration_BO_Pareto):
 
 best_filtered_mag_idx = torch.argmin(Y_filtered_mag)
 BO_filtered_mag_candidate = [X_filtered_mag[best_filtered_mag_idx].detach().cpu().numpy()]
-if distribution_type == "double":
+if distribution_type == "Double":
     filtered_res_mag = LM_optimize(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params=mag_params_filtered,kwargs=fixed_args_mag_complement,startpoints=BO_filtered_mag_candidate)
 else:
     filtered_res_mag = LM_optimize(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params=mag_params_filtered,kwargs=fixed_args_mag_complement,startpoints=BO_filtered_mag_candidate)
@@ -913,7 +913,7 @@ filtered_res_mag_np = np.array(filtered_res_mag.x)
 assembled_theta_nucside = assemble_theta(jointfit_params,mag_params_filtered,filtered_res_mag_np,nuc_params_filtered,jointstart_nuc_filtered,fixed_args_mag_complement)
 print("Lamda = 1 (only nuclear influence) fit result:", assembled_theta_nucside)
 nuc_params_lambda1, mag_params_lambda1 = separate_nuc_mag_parameters(assembled_theta_nucside,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-if distribution_type == "double":
+if distribution_type == "Double":
     assembled_theta_nucside_chi2_nuc = chi2_final_intensity_spheroid_double(nuc_params_lambda1,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None:
         assembled_theta_nucside_chi2_mag = chi2_final_intensity_spheroid_double(mag_params_lambda1,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -956,7 +956,7 @@ list_pareto_chi2_red_mag.append(assembled_theta_nucside_chi2_mag)
 ### Start Pareto Sweep ###
 for weight in list_lambda:
     ### first do LM to approach solution, start sweep from lambda = 0 (magnetic scattering)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         residual_nuc_sweep = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
         residual_mag_sweep = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
     else:
@@ -971,7 +971,7 @@ for weight in list_lambda:
     bounds_BO_sweep = construct_joint_bounds(BO_startpoint_nuc,BO_startpoint_mag,joint_searchwidth_fine,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
     X_sweep = bounds_BO_sweep[0]+(bounds_BO_sweep[1]-bounds_BO_sweep[0])*torch.rand(n_init_fine,bounds_BO_sweep.shape[1])
     X_sweep_nuc, X_sweep_mag = separate_nuc_mag_parameters_tensor(X_sweep,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
             Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -1000,7 +1000,7 @@ for weight in list_lambda:
         raw_samples=256,
     )
         new_X_sweep_nuc, new_X_sweep_mag = separate_nuc_mag_parameters_tensor(candidate,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-        if distribution_type == "double":
+        if distribution_type == "Double":
             new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(new_X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
             if log_Ibg_mag is not None:
                 new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -1033,7 +1033,7 @@ for weight in list_lambda:
     list_weights.append(weight)
     list_pareto_candidates.append(result_joint_weighted_finalfit.x)
     result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
             chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -1053,7 +1053,7 @@ for weight in list_lambda:
 current_theta = [assembled_theta_nucside]
 for weight in list_lambda:
     ### first do LM to approach solution, start sweep from lambda = 1 (nuclear scattering)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         residual_nuc_sweep = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
         residual_mag_sweep = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
     else:
@@ -1068,7 +1068,7 @@ for weight in list_lambda:
     bounds_BO_sweep = construct_joint_bounds(BO_startpoint_nuc,BO_startpoint_mag,joint_searchwidth_fine,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
     X_sweep = bounds_BO_sweep[0]+(bounds_BO_sweep[1]-bounds_BO_sweep[0])*torch.rand(n_init_fine,bounds_BO_sweep.shape[1])
     X_sweep_nuc, X_sweep_mag = separate_nuc_mag_parameters_tensor(X_sweep,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
             Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -1097,7 +1097,7 @@ for weight in list_lambda:
         raw_samples=256,
     )
         new_X_sweep_nuc, new_X_sweep_mag = separate_nuc_mag_parameters_tensor(candidate,num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-        if distribution_type == "double":
+        if distribution_type == "Double":
             new_Y_sweep_nuc = chi2_final_intensity_spheroid_BO_double(new_X_sweep_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
             if log_Ibg_mag is not None:
                 new_Y_sweep_mag = chi2_final_intensity_spheroid_BO_double(new_X_sweep_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -1130,7 +1130,7 @@ for weight in list_lambda:
     list_weights.append(1-weight)
     list_pareto_candidates.append(result_joint_weighted_finalfit.x)
     result_joint_weighted_finalfit_nuc,result_joint_weighted_finalfit_mag = separate_nuc_mag_parameters(np.array(result_joint_weighted_finalfit.x),num_parameters,nuc_pos_list,mag_pos_list,log_Ibg_mag)
-    if distribution_type == "double":
+    if distribution_type == "Double":
         chi2_joint_weighted_finalfit_nuc = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         if log_Ibg_mag is not None:
             chi2_joint_weighted_finalfit_mag = chi2_final_intensity_spheroid_double(result_joint_weighted_finalfit_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)

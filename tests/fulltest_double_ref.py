@@ -45,10 +45,10 @@ target_chi2 = 1
 width_chi2 = 0.3
 
 ###input parameters
-distribution_type = "log normal" #mono,normal,log normal,double
-if distribution_type == "double":
-    distribution_type_1 = "log normal" #mono,normal,log normal
-    distribution_type_2 = "log normal" #mono,normal,log normal
+distribution_type = "log_normal" #mono,normal,log normal,double
+if distribution_type == "Double":
+    distribution_type_1 = "log_normal" #mono,normal,log normal
+    distribution_type_2 = "log_normal" #mono,normal,log normal
     distribution_weight = 0.5 #weight of the first distribution function
 
 model_1 = "sphere" #sphere, ellipsoid, core-shell
@@ -165,7 +165,7 @@ print(test_sigmaImag.shape)
 ###computation of porod and background scattering signal
 num_parameters = 0
 #case by case initialization
-if (distribution_type == "normal") or (distribution_type == "log normal") :
+if (distribution_type == "normal") or (distribution_type == "log_normal") :
     if model_1 == "sphere":
         num_parameters_1 = 5
     elif model_1 == "ellipsoid":
@@ -181,8 +181,8 @@ elif distribution_type == "mono":
     elif model_1 == "core-shell":
         num_parameters_1 = 6
     num_parameters = num_parameters_1
-elif distribution_type == "double":
-    if (distribution_type_1 == "normal") or (distribution_type_1 == "log normal") :
+elif distribution_type == "Double":
+    if (distribution_type_1 == "normal") or (distribution_type_1 == "log_normal") :
         if model_1 == "sphere":
             num_parameters_1 = 5
         elif model_1 == "ellipsoid":
@@ -196,7 +196,7 @@ elif distribution_type == "double":
             num_parameters_1 = 5
         elif model_1 == "core-shell":
             num_parameters_1 = 6
-    if (distribution_type_2 == "normal") or (distribution_type_2 == "log normal") :
+    if (distribution_type_2 == "normal") or (distribution_type_2 == "log_normal") :
         if model_2 == "sphere":
             num_parameters_2 = 3
         elif model_2 == "ellipsoid":
@@ -281,7 +281,7 @@ fixed_kwargs = {'approx': I_porod}
 # assign distribution function
 distribution_1 = "mono"
 distribution_2 = "mono"
-if distribution_type == "log normal":
+if distribution_type == "log_normal":
     distribution_1 = distribution_lognormal
     bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
     bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -297,8 +297,8 @@ elif distribution_type == "normal":
     common_params.append('sigma')
     bounds_box_1.append(range_sigma)
     joint_searchwidth_1.append(search_width_sigma_jointfit)
-elif distribution_type == "double":
-    if distribution_type_1 == "log normal":
+elif distribution_type == "Double":
+    if distribution_type_1 == "log_normal":
         distribution_1 = distribution_lognormal
         bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_sigma[0],sigma_1-search_width_sigma),min(range_sigma[1],sigma_1+search_width_sigma)]])])
         bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_sigma[0],sigma_1_mag-search_width_sigma),min(range_sigma[1],sigma_1_mag+search_width_sigma)]])])
@@ -314,7 +314,7 @@ elif distribution_type == "double":
         common_params.append('sigma')
         bounds_box_1.append(range_sigma)
         joint_searchwidth_1.append(search_width_sigma_jointfit)
-    if distribution_type_2 == "log normal":
+    if distribution_type_2 == "log_normal":
         distribution_2 = distribution_lognormal
         bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_sigma[0],sigma_2-search_width_sigma),min(range_sigma[1],sigma_2+search_width_sigma)]])])
         bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_sigma[0],sigma_2_mag-search_width_sigma),min(range_sigma[1],sigma_2_mag+search_width_sigma)]])])
@@ -332,7 +332,7 @@ elif distribution_type == "double":
         joint_searchwidth_2.append(search_width_sigma_jointfit)
 
 fixed_kwargs['distribution'] = distribution_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
 
 
@@ -396,7 +396,7 @@ elif model_2 == "core-shell":
 fixed_kwargs['distribution'] = distribution_1
 fixed_kwargs['formfactor'] = formfactor_1
 fixed_kwargs['volume'] = volume_1
-if distribution_type == "double":
+if distribution_type == "Double":
     fixed_kwargs['distribution_2'] = distribution_2
     fixed_kwargs['formfactor_2'] = formfactor_2
     fixed_kwargs['volume_2'] = volume_2
@@ -410,7 +410,7 @@ else:
     nuc_pos_list = [2]
     mag_pos_list = [0]
 #assign BO bounds
-if distribution_type == "double":
+if distribution_type == "Double":
     bounds = torch.cat([bounds_1,bounds_2])
     bounds_mag = torch.cat([bounds_1_mag,bounds_2_mag])
     bounds = bounds.T
@@ -463,7 +463,7 @@ X_mag = bounds_mag[0] + (bounds_mag[1]-bounds_mag[0])*torch.rand(n_init, bounds_
 #print(bounds.shape)
 #print(X)
 
-if distribution_type == "double":
+if distribution_type == "Double":
     Y = chi2_final_intensity_spheroid_BO_double(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     if log_Ibg_mag is not None:
         Y_mag = chi2_final_intensity_spheroid_BO_double(X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
@@ -478,7 +478,7 @@ else:
    
 
 
-#if distribution_type == "double":
+#if distribution_type == "Double":
 #    Y,reward_variance = chi2_final_intensity_spheroid_BO_double_with_reward(X,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
 #else:
 #    Y,reward_variance = chi2_final_intensity_spheroid_BO_single_with_reward(X,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI,target_chi2,width_chi2)
@@ -528,7 +528,7 @@ for iteration in range(max_iteration_BO):
             )
             t2 = time.time()
             print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
+            if distribution_type == "Double":
                 new_Y = chi2_final_intensity_spheroid_BO_double(candidate,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
             else:
                 new_Y = chi2_final_intensity_spheroid_BO_single(candidate,distribution_1,formfactor_1,volume_1,test_Q,test_I,test_sigmaI)
@@ -566,7 +566,7 @@ else:
     BO_candidates = [X[best_idx].detach().cpu().numpy()]
     #BO_candidates.reshape(1,bounds.shape[1])
 print("BO_candidates:", BO_candidates)
-if distribution_type == "double":
+if distribution_type == "Double":
     result = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
 else:
     result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=params,kwargs=fixed_kwargs,startpoints=BO_candidates)
@@ -605,7 +605,7 @@ for iteration in range(max_iteration_BO):
             )
             t2 = time.time()
             print(f"optimize_acqf took {t2-t1:.1f}s")
-            if distribution_type == "double":
+            if distribution_type == "Double":
                 new_Y_mag = chi2_final_intensity_spheroid_BO_double(candidate_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
             else:
                 new_Y_mag = chi2_final_intensity_spheroid_BO_single(candidate_mag,distribution_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
@@ -650,7 +650,7 @@ else:
     params_firstfit_mag = params.deepcopy()
     params_firstfit_mag.pop(0)
     params_firstfit_mag.pop(0)
-if distribution_type == "double":
+if distribution_type == "Double":
     result_mag = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params,fixed_kwargs,BO_candidates_mag)
 else:
     result_mag = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params,fixed_kwargs,BO_candidates_mag)
@@ -689,7 +689,7 @@ bounds_mag_joint = [[max(bounds_box_np[0][0],jointstart_mag[0]-joint_searchwidth
               [max(bounds_box_np[1][0],jointstart_mag[1]-joint_searchwidth[1]),min(bounds_box_np[1][1],jointstart_mag[1]+joint_searchwidth[1])],
               [max(bounds_box_np[2][0],jointstart_mag[2]-joint_searchwidth[2]),min(bounds_box_np[2][1],jointstart_mag[2]+joint_searchwidth[2])]]
 
-if distribution_type == "double":
+if distribution_type == "Double":
     bounds_mag_joint.append([max(bounds_box_np[pos_array_A_2][0],jointstart_mag[pos_array_A_2]-joint_searchwidth[pos_array_A_2]),min(bounds_box_np[pos_array_A_2][1],jointstart_mag[pos_array_A_2]+joint_searchwidth[pos_array_A_2])])
     if model_1 == "core-shell":
         bounds_mag_joint.append([max(bounds_box_np[pos_array_mu_1][0],jointstart_mag[pos_array_mu_1]-joint_searchwidth[pos_array_mu_1]),min(bounds_box_np[pos_array_mu_1][1],jointstart_mag[pos_array_mu_1]+joint_searchwidth[pos_array_mu_1])])
@@ -714,7 +714,7 @@ jointfit_X_mag = jointfit_X_nuc.clone()
 jointfit_X_mag[:, nuc_pos_list] = jointfit_X[:, num_parameters+torch.tensor(mag_pos_list)]
 
 #initialize Y values
-if distribution_type == "double":
+if distribution_type == "Double":
     jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
     jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
 else:
@@ -746,7 +746,7 @@ for iteration in range(max_iteration_BO):
     new_jointfit_X_nuc = candidate[:,:num_parameters]
     new_jointfit_X_mag = new_jointfit_X_nuc.clone()
     new_jointfit_X_mag[:, nuc_pos_list] = candidate[:, num_parameters+torch.tensor(mag_pos_list)]
-    if distribution_type == "double":
+    if distribution_type == "Double":
         new_jointfit_Y_nuc = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_nuc,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_I,test_sigmaI)
         new_jointfit_Y_mag = chi2_final_intensity_spheroid_BO_double(new_jointfit_X_mag,distribution_1,distribution_2,formfactor_1,formfactor_2,volume_1,volume_2,test_Q,test_Imag,test_sigmaImag)
     else:
@@ -786,7 +786,7 @@ else:
     #BO_candidates_jointfit.reshape(1,bounds_final.shape[1])
 
 
-if distribution_type == "double":
+if distribution_type == "Double":
     residual_nuc = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
     residual_mag = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
     joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)

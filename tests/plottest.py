@@ -39,10 +39,10 @@ import time
 import copy
 st.title("Toggle Nuclear/Magnetic Scattering")
 ###input parameters
-distribution_type = "double" #mono,normal,log normal,double
-if distribution_type == "double":
-    distribution_type_1 = "log normal" #mono,normal,log normal
-    distribution_type_2 = "log normal" #mono,normal,log normal
+distribution_type = "Double" #mono,normal,log normal,double
+if distribution_type == "Double":
+    distribution_type_1 = "log_normal" #mono,normal,log normal
+    distribution_type_2 = "log_normal" #mono,normal,log normal
     distribution_weight = 0.5 #weight of the first distribution function
 
 model_1 = "sphere" #sphere, ellipsoid, core-shell
