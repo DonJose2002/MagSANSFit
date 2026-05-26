@@ -10,6 +10,7 @@ from app.utilities.visibility import update_variable_activity
 from app.utilities.validation import validate_all_variable_values
 from app.utilities.cache_generator import get_BO_config, get_model_config, get_variable_config
 from app.components.single_analysis import singular_fit
+from app.components.joint_analysis import joint_analysis
 from app.components.controls import render_controls
 from app.components.model_selector import render_model_selector
 from app.components.plotting import single_plot
@@ -163,8 +164,19 @@ if treated_input:
             st.write("Analysis Finished")
 
     with col3:
-        if "joint_fit_result" not in st.session_state:
-            st.session_state.joint_fit_result = {}
+        if st.session_state.global_model_state["analysis_mode"] == "Nuclear-Magnetic Joint Analysis":
+            if "joint_fit_result" not in st.session_state:
+                st.session_state.joint_fit_result = {}
+            if st.button("Joint Analysis"):
+                st.write("Started Joint Dataset Analysis")
+                if st.session_state.single_fit_result.get("Nuclear Signal") is None:
+                    st.session_state.single_fit_result["Nuclear Signal"] = singular_fit(treated_input,st.session_state.global_model_state,st.session_state.analysis_configs,"Nuclear Signal",current_variables,BO_config,output_graph_data=False)
+                
+                if st.session_state.single_fit_result.get("Magnetic Signal") is None:
+                    st.session_state.single_fit_result["Magnetic Signal"] = singular_fit(treated_input,st.session_state.global_model_state,st.session_state.analysis_configs,"Magnetic Signal",current_variables,BO_config,output_graph_data=False)
+                joint_result = joint_analysis(treated_input,st.session_state.global_model_state,st.session_state.analysis_configs,st.session_state.single_fit_result,BO_config)
+                st.session_state.joint_fit_result[st.session_state.active_dataset]=joint_result
+                st.write("Analysis Finished")
         
     #    st.write("chi2_nuc:", chi2_nuc)
 #

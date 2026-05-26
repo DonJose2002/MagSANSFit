@@ -16,6 +16,7 @@ from core.utils.helper_functions import log_chi2_red_variance
 from core.models.assembled_problem import final_intensity_spheroid,nano_intensity_spheroid,double_intensity_spheroid,single_intensity_spheroid,double_intensity_spheroid_mag,single_intensity_spheroid_mag
 
 OUTPUT_DIR = "output"
+os.makedirs(OUTPUT_DIR, exist_ok=True)
 def singular_fit(treated_input,global_model_state,analysis_configs,active_dataset,variable_values,BO_config,output_graph_data=True):
     ### gather st info ###
     analysis_mode =  global_model_state["analysis_mode"]
@@ -49,7 +50,10 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
 
     (bounds, 
             bounds_mag, 
-            params, 
+            params,
+            params_mag,
+            common_params,
+            num_parameters, 
             fixed_kwargs,
             params_mag_1, 
             params_firstfit_mag, 

@@ -67,6 +67,7 @@ def initialize_state():
         st.session_state.analysis_configs = {
             "max_iteration_BO": 75,
             "max_iteration_BO_Pareto": 50,
+            "min_discrepancy_iteration": 50,
             "logspace_tolerance": 0.1,
             "n_init": 100,
             "n_init_discrepancy": 100,

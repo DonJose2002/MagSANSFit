@@ -452,6 +452,10 @@ jointfit_params = params + params_mag_1
 
 beta = 6 #smaller beta makes search more aggressive
 dof = test_I.shape[0]-bounds.shape[1] #degree of freedom for chi2
+if log_Ibg_mag is not None:
+    dof_mag = dof
+else:
+    dof_mag = dof + 2
 #initial guess values
 n_init = 100
 
@@ -590,7 +594,7 @@ for iteration in range(max_iteration_BO):
             #print(Y_variance.min(), Y_variance.max())
             t0 = time.time()
             s2_Y_mag = log_Y_mag.var()
-            Y_mag_variance = log_chi2_red_variance(Y_mag,dof,s2=s2_Y_mag)
+            Y_mag_variance = log_chi2_red_variance(Y_mag,dof_mag,s2=s2_Y_mag)
             model_gp_mag = build_model(X_mag,log_Y_mag,Y_mag_variance,beta)
             
             #print(s2_Y)
@@ -670,7 +674,7 @@ if distribution_type == "Double":
 else:
     result_mag = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_Imag,test_sigmaImag,params_firstfit_mag,fixed_kwargs,BO_candidates_mag)
 
-print(f"Best result: Parameters = {result_mag.x}, chi2_red = {result_mag.cost*2/dof:.4f}")
+print(f"Best result: Parameters = {result_mag.x}, chi2_red = {result_mag.cost*2/dof_mag:.4f}")
 
 J_mag = result_mag.jac #jacobian
 H_approx_mag = J_mag.T @ J_mag #hessian approximation
@@ -764,9 +768,9 @@ log_Y_jointfit = torch.log(jointfit_Y)
 #BO iteration
 for iteration in range(max_iteration_BO):
     s2_jointfit = log_Y_jointfit.var()
-    jointfit_Y_variance = joint_log_chi2_red_variance(jointfit_Y_nuc,jointfit_Y_mag,dof,s2_jointfit)
-    model_gp = build_model(jointfit_X,log_Y_jointfit,jointfit_Y_variance,beta)
-    
+    jointfit_Y_variance = joint_log_chi2_red_variance(jointfit_Y_nuc,jointfit_Y_mag,dof,dof_mag,s2_jointfit)
+    model_gp = build_model(jointfit_X,log_Y_jointfit,jointfit_Y_variance,beta_jointfit)
+
     acq = LogNoisyExpectedImprovement(model_gp,jointfit_X,maximize = False)
     candidate,_ = optimize_acqf(
         acq_function = acq,
@@ -832,13 +836,13 @@ if distribution_type == "Double":
     residual_nuc = make_residuals_from_slice(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
     residual_mag = make_residuals_from_slice(double_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
     joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
+    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof,dof_2=dof_mag)
     result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
 else:
     residual_nuc = make_residuals_from_slice(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params,fixed_kwargs,jointfit_params)
     residual_mag = make_residuals_from_slice(single_intensity_spheroid_mag,test_Q,'Q',test_Imag,test_sigmaImag,params_mag,fixed_kwargs,jointfit_params)
     joint_residual_nostop = make_joint_residuals(residual_nuc,residual_mag)
-    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof)
+    joint_residual = make_joint_residuals(residual_nuc,residual_mag,dof=dof,dof_2=dof_mag)
     result_jointfit_1 = LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints=BO_candidates_jointfit)
 
 J_jointfit_1 = result_jointfit_1.jac #jacobian

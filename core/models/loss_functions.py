@@ -195,17 +195,54 @@ def make_discrepancy_loss_from_slice(func,x_array,x_name, experiment, uncertaint
         model_discrepancy = np.exp(params[all_param_names.index(discrepancy)])
         return np.sum((np.log(experiment)-np.log(y_model))**2/((uncertainty/y_model)**2+model_discrepancy**2) + np.log((uncertainty/y_model)**2+model_discrepancy**2))
     return residuals
+
+def make_discrepancy_loss_from_slice_noresidual(func,x_array,x_name, experiment, uncertainty, param_names, fixed_kwargs, all_param_names, discrepancy):
+    sig = inspect.signature(func)
+    all_args = set(sig.parameters.keys())
+    
+    provided = set(param_names) | set(fixed_kwargs.keys()) | {x_name}
+    unknown  = provided - all_args
+
+    # ignore parameters that have defaults and weren't provided
+    required = {
+        name for name, p in sig.parameters.items()
+        if p.default is inspect.Parameter.empty
+    }
+    missing_required = required - provided
+
+    if missing_required:
+        raise ValueError(f"Required arguments not provided: {missing_required}")
+    if unknown:
+        raise ValueError(f"Unrecognised argument names: {unknown}")
+    overlap = set(param_names) & set(fixed_kwargs.keys())
+    if overlap:
+        raise ValueError(f"Arguments appear in both param_names and fixed_kwargs: {overlap}")
+    def residuals(params):
+        local_params = np.array([
+            params[all_param_names.index(name)]
+            for name in param_names
+        ])
+        
+        optimized = dict(zip(param_names, local_params))
+        shared_kwargs = {**fixed_kwargs, **optimized}
+        y_model = np.array([
+            func(**{**shared_kwargs, x_name: xi})
+            for xi in x_array
+        ])
+        model_discrepancy = np.exp(params[all_param_names.index(discrepancy)])
+        return np.sum((np.log(experiment)-np.log(y_model))**2/((uncertainty/y_model)**2+model_discrepancy**2))
+    return residuals
 """
 make_joint_residuals: creates single residual function
 """
-def make_joint_residuals(residuals_1, residuals_2, dof = None, target_chi2_red = 1.0, tolerance = 0.2):
+def make_joint_residuals(residuals_1, residuals_2, dof = None, dof_2 = None, target_chi2_red = 1.0, tolerance = 0.2):
     def residuals(params):
         r1 = residuals_1(params)
         r2 = residuals_2(params)
         r = np.concatenate([r1,r2])
         if dof is not None:
             chi2_red_1 = np.sum(r1**2)/dof
-            chi2_red_2 = np.sum(r2**2)/dof
+            chi2_red_2 = np.sum(r2**2)/dof_2
             if (abs(chi2_red_1 - target_chi2_red) < tolerance) & (abs(chi2_red_2 - target_chi2_red) < tolerance):
                 raise TargetChi2Reached(params.copy())
         return r

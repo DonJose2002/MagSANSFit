@@ -51,10 +51,10 @@ def log_chi2_red_variance(chi2_red, dof, s2=None): #s2: variance of log reduced 
 """
 joint fit Y variance for log reduced chi2
 """
-def joint_log_chi2_red_variance(chi2_red_1, chi2_red_2, dof, s2 = None):
+def joint_log_chi2_red_variance(chi2_red_1, chi2_red_2, dof, dof_2, s2 = None):
     chi2_sum = chi2_red_1 + chi2_red_2
     variance_1 = 4*chi2_red_1/dof
-    variance_2 = 4*chi2_red_2/dof
+    variance_2 = 4*chi2_red_2/dof_2
     variance = (variance_1+variance_2)/chi2_sum ** 2
     if s2 is not None:
         return torch.clamp(variance, min=s2*2e-6)
