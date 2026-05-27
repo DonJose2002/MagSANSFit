@@ -189,7 +189,7 @@ if treated_input:
 # ----------------------------------------
 
 
-    with st.expander("Debug"):
-        st.write(BO_config)
-        st.write(st.session_state["data_loader"].name)
-        st.write(st.session_state.single_fit_result[st.session_state.active_dataset])
+#    with st.expander("Debug"):
+#        st.write(BO_config)
+#        st.write(st.session_state["data_loader"].name)
+#        st.write(st.session_state.single_fit_result[st.session_state.active_dataset])

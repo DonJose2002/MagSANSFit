@@ -325,7 +325,7 @@ def single_plot(treated_input, global_model_state, active_dataset, variable_valu
             y = np.log(test_I),
             mode = "markers",
             name = "Experimental Scattering",
-            marker = dict(size=10)
+            marker = dict(size=5)
         ))
     fig.add_trace(go.Scatter(
             x=model_Q,

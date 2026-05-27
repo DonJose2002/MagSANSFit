@@ -139,11 +139,11 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
     best_idx = torch.argmin(Y)
     print("Best theta:", X[best_idx])
     print("Best chi2:", Y[best_idx])
-    condition = condition.squeeze(1)
+    condition = condition.squeeze()
     startpoints = X[condition]
 
     if torch.any(condition).item(): 
-        condition = condition.squeeze(1)
+        condition = condition.squeeze()
         startpoints = X[condition]
         if count != 1:
             BO_candidates = startpoints.detach().cpu().numpy()

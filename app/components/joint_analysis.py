@@ -48,7 +48,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
         log_Ibg_mag = 0 # placeholder value for logic
 
     max_iteration_BO = analysis_configs["max_iteration_BO"]
-    max_iteration_BO_Pareto = analysis_configs["max_iteration_BO_pareto"]
+    max_iteration_BO_Pareto = analysis_configs["max_iteration_BO_Pareto"]
     min_discrepancy_iteration = analysis_configs["min_discrepancy_iteration"]
     logspace_tolerance = analysis_configs["logspace_tolerance"]
     n_init = analysis_configs["n_init"]
@@ -88,9 +88,10 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
     dof_mag = test_Imag.shape[0]-bounds_mag.shape[1]
     jointstart_nuc, chi2_nuc = single_fit_result["Nuclear Signal"]
     jointstart_mag, chi2_mag = single_fit_result["Magnetic Signal"]
-
+    print(jointfit_params)
     ### first do simple joint fit ###
     bounds_jointfit = construct_joint_bounds(jointstart_nuc,jointstart_mag,joint_searchwidth,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
+    print(bounds_jointfit)
     jointfit_X = bounds_jointfit[0] + (bounds_jointfit[1]-bounds_jointfit[0])*torch.rand(n_init,bounds_jointfit.shape[1])
     beta_jointfit = 3.0/(1/bounds_jointfit.shape[1]**0.5)
     #construct separate starter values
@@ -172,7 +173,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
     print("Best theta:", jointfit_X[best_idx_jointfit])
     print("Best combined chi2:", jointfit_Y[best_idx_jointfit])
     if torch.any(condition_jointfit).item():
-        condition_jointfit = condition_jointfit.squeeze(1)
+        condition_jointfit = condition_jointfit.squeeze()
         #indices_jointfit = torch.nonzero(condition_jointfit)
         startpoints_jointfit = jointfit_X[condition_jointfit]
         if count != 1:
@@ -470,7 +471,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
         if log_discrepancy_Y_total_best > new_log_discrepancy_Y_total.item():
             log_discrepancy_Y_total_best = new_log_discrepancy_Y_total.item()
         if iteration == min_discrepancy_iteration:
-            condition_firstcheck = (log_discrepancy_Y_total <= log_discrepancy_Y_total_best + logspace_tolerance).squeeze(1)# if log space chi2 is sufficiently good
+            condition_firstcheck = (log_discrepancy_Y_total <= log_discrepancy_Y_total_best + logspace_tolerance).squeeze()# if log space chi2 is sufficiently good
             #count = torch.sum(condition_firstcheck).item()
             indices = torch.nonzero(condition_firstcheck)
             #print(indices)
@@ -573,12 +574,12 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
             f.write(f"### Fit Results: ### \n")
             for point in range(len(acceptable_points)):
                 f.write(f"### Acceptable Point {point+1} ### \n")
-                for idx in range(len(jointfit_params)):
+                for idx in range(len(LBFGS_params)):
                     variable_name = LBFGS_params[idx]
                     variable_value = acceptable_points[point][idx]
-                    f.write(f"#{variable_name}: {variable_value}, uncertainty: {variable_uncertainty} \n")
-                f.write(f"Equivalent chi2_red_nuc: {acceptable_equivalent_chi2_nuc[point]} \n" )
-                f.write(f"Equivalent chi2_red_mag: {acceptable_equivalent_chi2_mag[point]} \n" )
+                    f.write(f"#{variable_name}: {variable_value}\n")
+                f.write(f"Equivalent chi2_red_nuc: {acceptable_equivalent_chi2_nuc[point]/dof_nuc} \n" )
+                f.write(f"Equivalent chi2_red_mag: {acceptable_equivalent_chi2_mag[point]/dof_mag} \n" )
                 f.write(f"True model discrepancy nuc: {acceptable_model_discrepancy_nuc[point]} \n")
                 f.write(f"True model discrepancy mag: {acceptable_model_discrepancy_mag[point]} \n")
         print("Joint Analysis finished!")
