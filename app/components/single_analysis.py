@@ -191,8 +191,12 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
             C = np.exp(log_C)
         if sigma_1 is not None:
             sigma_rm_1 = sigma_1*Rm_1
+        else:
+            sigma_rm_1 = None
         if sigma_2 is not None:
             sigma_rm_2 = sigma_2*Rm_2
+        else:
+            sigma_rm_2 = None
         if A_2 is not None:
             combinedfactor_2 = np.exp(-A_2)
         model_Q = np.linspace(max(np.min(test_Q)-0.1,0.01),np.max(test_Q)+0.1,100)
