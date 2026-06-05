@@ -88,7 +88,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
     dof_mag = test_Imag.shape[0]-bounds_mag.shape[1]
     jointstart_nuc, chi2_nuc = single_fit_result["Nuclear Signal"]
     jointstart_mag, chi2_mag = single_fit_result["Magnetic Signal"]
-    print(jointfit_params)
+    #print(jointfit_params)
     ### first do simple joint fit ###
     bounds_jointfit = construct_joint_bounds(jointstart_nuc,jointstart_mag,joint_searchwidth,pos_array_A_2,pos_array_mu_1,pos_array_mu_2,log_Ibg_mag,distribution_type,model_1,model_2)
     print(bounds_jointfit)
@@ -162,7 +162,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
         #jointfit_Y_variance = torch.cat([jointfit_Y_variance,new_jointfit_Y_variance])
         print(f"Iteration {iteration}: best target = {jointfit_Y.min().item():.4f}, new candidate = {candidate}")
 
-        condition_jointfit = (jointfit_Y >= 1.6) & (jointfit_Y <= 4.0)
+        condition_jointfit = (jointfit_Y_nuc <= 2.0) & (jointfit_Y_mag <= 2.0)
         count = torch.sum(condition_jointfit).item()
         if count >= 5:
             #indices = torch.nonzero(condition)
@@ -219,7 +219,8 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
             chi2_jointfit_1_mag = chi2_final_intensity_spheroid_single(theta_jointfit_1_mag,distribution_func_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
         else:
             chi2_jointfit_1_mag = chi2_nano_intensity_spheroid_single(theta_jointfit_1_mag,distribution_func_1,formfactor_1,volume_1,test_Q,test_Imag,test_sigmaImag)
-    if abs(chi2_jointfit_1_nuc-1) < 0.2 and abs(chi2_jointfit_1_mag-1) < 0.2:
+    print(chi2_jointfit_1_nuc,chi2_jointfit_1_mag)
+    if chi2_jointfit_1_nuc-1 < 0.2 and chi2_jointfit_1_mag-1 < 0.2:
         print(f"First joint fit results satisfactory: chi2_nuc = {chi2_jointfit_1_nuc:.3f}, chi2_mag = {chi2_jointfit_1_mag:.3f}. Returning result as output file.")
         lookup = dict(zip(jointfit_params, theta_jointfit_1))
         log_Ibg = lookup.get("background_log")
@@ -316,10 +317,10 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
                 variable_value = theta_jointfit_1[idx]
                 variable_uncertainty = uncertainties_jointfit_1[idx]
                 f.write(f"#{variable_name}: {variable_value}, uncertainty: {variable_uncertainty} \n")
-            f.write(f"Chi2_red_nuc: {chi2_jointfit_1_nuc} \n" )
-            f.write(f"Chi2_red_mag: {chi2_jointfit_1_mag} \n" )
+            f.write(f"#Chi2_red_nuc: {chi2_jointfit_1_nuc} \n" )
+            f.write(f"#Chi2_red_mag: {chi2_jointfit_1_mag} \n" )
             f.write(f"### Model Intensity ### \n")
-            f.write(f"Q(nm-1) Inuc(Q)(cm-1) Imag(Q)(cm-1)\n")
+            f.write(f"#Q(nm-1) Inuc(Q)(cm-1) Imag(Q)(cm-1)\n")
             for q, Inuc, Imag in zip(model_Q,model_Inuc,model_Imag):
                 f.write(f"{q} {Inuc} {Imag}\n")
 
@@ -340,7 +341,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
                 i_mag = i
             else:
                 i_mag = i-2 #decrement by 2 to match position
-            current_bound = [max(jointstart_nuc[i]-joint_searchwidth[i],jointstart_mag[i_mag]-joint_searchwidth[i]),min(jointstart_nuc[i]+joint_searchwidth[i],jointstart_mag[i_mag]+joint_searchwidth[i])]
+            current_bound = [min(jointstart_nuc[i]-joint_searchwidth[i],jointstart_mag[i_mag]-joint_searchwidth[i]),max(jointstart_nuc[i]+joint_searchwidth[i],jointstart_mag[i_mag]+joint_searchwidth[i])]
         else:
             current_bound = [jointstart_nuc[i]-joint_searchwidth[i],jointstart_nuc[i]+joint_searchwidth[i]]
         
@@ -578,10 +579,10 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
                     variable_name = LBFGS_params[idx]
                     variable_value = acceptable_points[point][idx]
                     f.write(f"#{variable_name}: {variable_value}\n")
-                f.write(f"Equivalent chi2_red_nuc: {acceptable_equivalent_chi2_nuc[point]/dof_nuc} \n" )
-                f.write(f"Equivalent chi2_red_mag: {acceptable_equivalent_chi2_mag[point]/dof_mag} \n" )
-                f.write(f"True model discrepancy nuc: {acceptable_model_discrepancy_nuc[point]} \n")
-                f.write(f"True model discrepancy mag: {acceptable_model_discrepancy_mag[point]} \n")
+                f.write(f"#Equivalent chi2_red_nuc: {acceptable_equivalent_chi2_nuc[point]/dof_nuc} \n" )
+                f.write(f"#Equivalent chi2_red_mag: {acceptable_equivalent_chi2_mag[point]/dof_mag} \n" )
+                f.write(f"#True model discrepancy nuc: {acceptable_model_discrepancy_nuc[point]} \n")
+                f.write(f"#True model discrepancy mag: {acceptable_model_discrepancy_mag[point]} \n")
         print("Joint Analysis finished!")
         return acceptable_points, acceptable_equivalent_chi2_nuc, acceptable_equivalent_chi2_mag, acceptable_model_discrepancy_nuc, acceptable_model_discrepancy_mag
     

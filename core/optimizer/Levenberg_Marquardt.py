@@ -1,8 +1,9 @@
-from scipy.optimize import least_squares
+from scipy.optimize import least_squares, OptimizeResult
 from scipy.optimize import approx_fprime
 import numpy as np
 
 from core.models.loss_functions import make_residual, make_residual_nostop, TargetChi2Reached
+
 """
 LM_optimize: optimizes target_function chi2 value based on the results of BO.
 target_function: function whose chi2_red is to be optimized. Either single_intensity or double_intensity
@@ -29,8 +30,7 @@ def LM_optimize(target_function,x_array,x_name,experiment,uncertainty,params,kwa
         try:
             result = least_squares(residual,x0=x0,method='lm',ftol=1e-12, xtol=1e-12, gtol=1e-12)
         except TargetChi2Reached as e:
-            result = least_squares(residual_nostop,x0=e.params,method='lm',ftol=0, xtol=0, gtol=0,max_nfev=1)
-
+            result = least_squares(residual_nostop,x0=e.params,method='lm',ftol=1e-15, xtol=1e-15, gtol=1e-15, max_nfev=1)
         if best_result is None or result.cost < best_result.cost:
             best_result = result
     return best_result
@@ -52,7 +52,7 @@ def LM_joint_optimize(joint_residual,joint_residual_nostop,startpoints):
                                    ftol=1e-12, xtol=1e-12, gtol=1e-12)
         except TargetChi2Reached as e:
             result = least_squares(joint_residual_nostop, x0=e.params, method='lm',
-                                   ftol=0, xtol=0, gtol=0, max_nfev=1)
+                                   ftol=1e-15, xtol=1e-15, gtol=1e-15, max_nfev=1)
         
         if best_result is None or result.cost < best_result.cost:
             best_result = result

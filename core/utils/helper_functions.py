@@ -80,7 +80,7 @@ def construct_joint_bounds(jointstart,jointstart_mag,joint_searchwidth,pos_array
                 i_mag = i
             else:
                 i_mag = i-2 #decrement by 2 to match position
-            current_bound = [max(jointstart[i]-joint_searchwidth[i],jointstart_mag[i_mag]-joint_searchwidth[i]),min(jointstart[i]+joint_searchwidth[i],jointstart_mag[i_mag]+joint_searchwidth[i])]
+            current_bound = [min(jointstart[i]-joint_searchwidth[i],jointstart_mag[i_mag]-joint_searchwidth[i]),max(jointstart[i]+joint_searchwidth[i],jointstart_mag[i_mag]+joint_searchwidth[i])]
         else:
             current_bound = [jointstart[i]-joint_searchwidth[i],jointstart[i]+joint_searchwidth[i]]
         

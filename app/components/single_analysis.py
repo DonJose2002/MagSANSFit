@@ -82,7 +82,9 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
         fit_params = params
     elif active_dataset == "Magnetic Signal":
         if Ibg is None:
-            dof = test_I.shape[0]-bounds.shape[1] + 2   
+            dof = test_I.shape[0]-bounds.shape[1] + 2
+        else:
+            dof = test_I.shape[0]-bounds.shape[1]  
         BO_bounds = bounds_mag
         fit_params = params_firstfit_mag
     ### BO preparation ###
@@ -153,11 +155,13 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
         BO_candidates = [X[best_idx].detach().cpu().numpy()]
     
     if distribution_type == "Double":
+        #print(fixed_kwargs)
+        #print(fit_params)
         #result = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
-        result = LM_optimize_nostop(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
+        result = LM_optimize(double_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
     else:
         #result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
-        result = LM_optimize_nostop(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
+        result = LM_optimize(single_intensity_spheroid,test_Q,'Q',test_I,test_sigmaI,params=fit_params,kwargs=fixed_kwargs,startpoints=BO_candidates)
 
     print(f"Best result: Parameters = {result.x}, chi2_red = {result.cost*2/dof:.4f}")
     jointstart = result.x
@@ -239,9 +243,9 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
                 variable_value = jointstart[idx]
                 variable_uncertainty = uncertainties[idx]
                 f.write(f"#{variable_name}: {variable_value}, uncertainty: {variable_uncertainty} \n")
-            f.write(f"Chi2_red: {chi2_red} \n" )
+            f.write(f"#Chi2_red: {chi2_red} \n" )
             f.write(f"### Model Intensity ### \n")
-            f.write(f"Q(nm-1) I(Q)(cm-1) \n")
+            f.write(f"#Q(nm-1) I(Q)(cm-1) \n")
             for q, Iq in zip(model_Q,model_I):
                 f.write(f"{q} {Iq}\n")
     print("Single Analysis Finished!")
