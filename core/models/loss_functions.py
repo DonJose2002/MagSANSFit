@@ -115,7 +115,7 @@ def make_residual(func, x_array, x_name, experiment, uncertainty, param_names, f
         r = (experiment - y_model) / uncertainty
         chi2_red = np.sum(r**2) / dof
 
-        if chi2_red - target_chi2_red < tolerance:
+        if (chi2_red - target_chi2_red < tolerance):
             raise TargetChi2Reached(params.copy())
         return (experiment - y_model) / uncertainty
     
@@ -243,7 +243,7 @@ def make_joint_residuals(residuals_1, residuals_2, dof = None, dof_2 = None, tar
         if dof is not None:
             chi2_red_1 = np.sum(r1**2)/dof
             chi2_red_2 = np.sum(r2**2)/dof_2
-            if chi2_red_1 - target_chi2_red < tolerance & chi2_red_2 - target_chi2_red < tolerance:
+            if (chi2_red_1 - target_chi2_red < tolerance) & (chi2_red_2 - target_chi2_red < tolerance):
                 raise TargetChi2Reached(params.copy())
         return r
     return residuals
@@ -261,7 +261,7 @@ def make_weighted_joint_residuals(residuals_1, residuals_2, lambda_coeff, dof_1,
         if stop:
             chi2_red_1 = np.sum(r1**2)/dof_1
             chi2_red_2 = np.sum(r2**2)/dof_2
-            if chi2_red_1 - target_chi2_red < tolerance & chi2_red_2 - target_chi2_red < tolerance:
+            if (chi2_red_1 - target_chi2_red < tolerance) & (chi2_red_2 - target_chi2_red < tolerance):
                 raise TargetChi2Reached(params.copy())
         return r
     return residuals
