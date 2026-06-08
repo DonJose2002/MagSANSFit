@@ -87,6 +87,8 @@ def singular_fit(treated_input,global_model_state,analysis_configs,active_datase
             dof = test_I.shape[0]-bounds.shape[1]  
         BO_bounds = bounds_mag
         fit_params = params_firstfit_mag
+    print(BO_bounds)
+    print(fit_params)
     ### BO preparation ###
     beta = 3.0/(1/BO_bounds.shape[1]**0.5)
     X = BO_bounds[0] + (BO_bounds[1] - BO_bounds[0]) * torch.rand(n_init, BO_bounds.shape[1])

@@ -191,7 +191,9 @@ def get_BO_config(settings_df,nuc_dataset_values,mag_dataset_values,global_model
     sigma_2_nuc = nuc_dataset_values.get("Sigma_2")
     sigma_rm_2_nuc = sigma_2_nuc*Rm_2_nuc
     k_1_nuc = nuc_dataset_values.get("kellipsoid_1")
+    k_1_nuc_cs = nuc_dataset_values.get("kshell_1")
     k_2_nuc = nuc_dataset_values.get("kellipsoid_2")
+    k_2_nuc_cs = nuc_dataset_values.get("kshell_2")
     mu_1_nuc = nuc_dataset_values.get("mu_1")
     mu_2_nuc = nuc_dataset_values.get("mu_2")
 
@@ -210,7 +212,9 @@ def get_BO_config(settings_df,nuc_dataset_values,mag_dataset_values,global_model
     sigma_2_mag = mag_dataset_values.get("Sigma_2")
     sigma_rm_2_mag = sigma_2_mag*Rm_2_mag
     k_1_mag = mag_dataset_values.get("kellipsoid_1")
+    k_1_mag_cs = mag_dataset_values.get("kshell_1")
     k_2_mag = mag_dataset_values.get("kellipsoid_2")
+    k_2_mag_cs = mag_dataset_values.get("kshell_2")
     mu_1_mag = mag_dataset_values.get("mu_1")
     mu_2_mag = mag_dataset_values.get("mu_2")
 
@@ -378,9 +382,9 @@ def get_BO_config(settings_df,nuc_dataset_values,mag_dataset_values,global_model
     elif model_1 == "core-shell":
         formfactor_1 = formfactor_coreshell
         volume_1 = volume_sphere
-        bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_kshell[0],k_1_nuc-search_width_kshell),min(range_kshell[1],k_1_nuc+search_width_kshell)]])])
+        bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_kshell[0],k_1_nuc_cs-search_width_kshell),min(range_kshell[1],k_1_nuc_cs+search_width_kshell)]])])
         bounds_1 = torch.cat([bounds_1,torch.tensor([[max(range_mu[0],mu_1_nuc-search_width_mu),min(range_mu[1],mu_1_nuc+search_width_mu)]])])
-        bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_kshell[0],k_1_mag-search_width_kshell),min(range_kshell[1],k_1_mag+search_width_kshell)]])])
+        bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_kshell[0],k_1_mag_cs-search_width_kshell),min(range_kshell[1],k_1_mag_cs+search_width_kshell)]])])
         bounds_1_mag = torch.cat([bounds_1_mag,torch.tensor([[max(range_mu[0],mu_1_mag-search_width_mu),min(range_mu[1],mu_1_mag+search_width_mu)]])])
         params_1.append('k')
         common_params.append('k')
@@ -409,9 +413,9 @@ def get_BO_config(settings_df,nuc_dataset_values,mag_dataset_values,global_model
     elif model_2 == "core-shell":
         formfactor_2 = formfactor_coreshell
         volume_2 = volume_sphere
-        bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_kshell[0],k_2_nuc-search_width_kshell),min(range_kshell[1],k_2_nuc+search_width_kshell)]])])
+        bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_kshell[0],k_2_nuc_cs-search_width_kshell),min(range_kshell[1],k_2_nuc_cs+search_width_kshell)]])])
         bounds_2 = torch.cat([bounds_2,torch.tensor([[max(range_mu[0],mu_2_nuc-search_width_mu),min(range_mu[1],mu_2_nuc+search_width_mu)]])])
-        bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_kshell[0],k_2_mag-search_width_kshell),min(range_kshell[1],k_2_mag+search_width_kshell)]])])
+        bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_kshell[0],k_2_mag_cs-search_width_kshell),min(range_kshell[1],k_2_mag_cs+search_width_kshell)]])])
         bounds_2_mag = torch.cat([bounds_2_mag,torch.tensor([[max(range_mu[0],mu_2_mag-search_width_mu),min(range_mu[1],mu_2_mag+search_width_mu)]])])
         params_2.append('k_2')
         common_params.append('k_2')

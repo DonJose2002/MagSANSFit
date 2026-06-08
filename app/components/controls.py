@@ -6,10 +6,6 @@ render_controls: Displays variable slidebar, input, and communicates value
 """
 def render_controls(dataset):
 
-    #settings_df = st.session_state.settings_df
-
-    #values = dataset["values"]
-
     st.sidebar.header("Parameters")
 
     for variable in dataset["variables"].values():
@@ -54,8 +50,6 @@ def render_controls(dataset):
         # -----------------------------------
         # Initialize common key
         # -----------------------------------
-
-        #shared_key = f"{widget_key}_value"
         slider_key = f"{widget_key}_slider"
         input_key = f"{widget_key}_input"
         #initialize keys to avoid problems during switch
@@ -70,12 +64,6 @@ def render_controls(dataset):
                 float(variable.get_value())
             )
 
-        #def on_slider_change():
-        #    st.session_state[shared_key] = st.session_state[f"{widget_key}_slider"]
-#
-#
-        #def on_number_change():
-        #    st.session_state[shared_key] = st.session_state[f"{widget_key}_input"]
         # -----------------------------------
         # SLIDER
         # -----------------------------------
@@ -87,7 +75,6 @@ def render_controls(dataset):
         def update_numin(s_key=slider_key, i_key=input_key):
             st.session_state[i_key] = st.session_state[s_key]
 
-        #init_val = float(variable.get_value())
         slider_value = st.sidebar.slider(
 
             variable.display_name,
@@ -104,8 +91,6 @@ def render_controls(dataset):
             on_change = update_numin,
             label_visibility="collapsed"
         )
-
-        #st.session_state[shared_key] = slider_value
 
 
         # -----------------------------------

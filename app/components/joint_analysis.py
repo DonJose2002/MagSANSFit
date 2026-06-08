@@ -1076,7 +1076,7 @@ def joint_analysis(treated_input,global_model_state,analysis_configs,single_fit_
         f.write(f"### Fit Satisfactory at stage 3: Pareto Sweep ### \n")
         f.write(f"### Fit Results: ### \n")
         for parameter in jointfit_params:
-            f.write(f"{parameter}")
+            f.write(f"{parameter} ")
         f.write(f"weight_nuc chi2_red_nuc chi2_red_mag\n")
         for i in range(len(list_pareto_front_sorted)):
             params = list_pareto_front_sorted[i]

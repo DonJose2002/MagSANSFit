@@ -56,7 +56,7 @@ Intepretation:
 
 - log_C: Natural logarithm of the Porod signal factor, where $I_{porod} = C/Q^\gamma$
 
-- A: The "combined factor", following the relation $exp(-A) = f_v \Delta \rho ^2 \cdot 10^7$
+- A: The "combined factor", following the relation $exp(-A) = f_v \Delta \rho ^2 \cdot 10^7$, where $\Delta \rho$ is in units of nm-2
 
 - Rm: Mean radius
 
