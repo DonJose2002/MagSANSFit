@@ -3,8 +3,7 @@ Magnetic Small Angle Neutron Scattering Fitting Workflow developed by Zilin LIU 
 
 For any questions or suggestions, feel free to contact the author at jose_liu@sjtu.edu.cn
 
-If you found this workflow useful, please consider citing the following:
-(article)
+If you found this workflow useful, please consider citing the accompanying article (citation will be added upon publication)
 
 ## Introduction
 
