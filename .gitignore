@@ -212,3 +212,6 @@ data/
 app/data/
 presets/
 tests/
+.vs/
+*.pdf
+*.png
